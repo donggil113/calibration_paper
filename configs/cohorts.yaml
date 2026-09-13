@@ -1,0 +1,230 @@
+# ---------------------------------------------------------------------------
+# Cohort registry for the Calibration Cliff study.
+#
+# `access` tiers
+#   open         - downloadable without registration
+#   credentialed - PhysioNet credentialed access: CITI training + signed DUA
+#   restricted   - institutional cohort, IRB + DTA required, never redistributed
+#
+# `n_records` values are the counts stated by the data descriptors.  They are
+# NOT trusted blindly: scripts/verify_cohorts.py recomputes them from the files
+# on disk and fails loudly on mismatch, because several of these datasets have
+# had records withdrawn between versions (PTB-XL is the known example).
+# ---------------------------------------------------------------------------
+
+version: "1.0"
+
+cohorts:
+
+  mimic:
+    display: "MIMIC-IV-ECG"
+    country: US
+    country_long: "United States (Boston, MA)"
+    site_type: "tertiary academic ED + inpatient"
+    n_records: 800035
+    n_patients: 161352
+    n_records_verify: true
+    fs_hz: 500
+    duration_s: 10
+    leads: 12
+    label_source: "cart interpretation statements (machine + over-read), mapped via text rules"
+    access: credentialed
+    version: "1.0"
+    url: "https://physionet.org/content/mimic-iv-ecg/1.0/"
+    doi: "10.13026/4nqg-sb35"
+    size_gb: 87
+    loader: "ecgcal.data.mimic_ecg"
+    role: "primary source domain (pretraining + supervised source)"
+    notes: >
+      Label extraction from free-text cart statements is itself a source of
+      label-definition shift.  We keep the rule set versioned and report
+      sensitivity of every headline number to it.
+
+  code15:
+    display: "CODE-15%"
+    country: BR
+    country_long: "Brazil (Minas Gerais, telehealth network)"
+    site_type: "primary-care telecardiology"
+    n_records: 345779
+    n_patients: 233770
+    n_records_verify: true
+    fs_hz: 400
+    duration_s: 10
+    leads: 12
+    label_source: "expert-validated automatic annotation (6 classes)"
+    access: open
+    version: "1.0"
+    url: "https://zenodo.org/records/4916206"
+    doi: "10.5281/zenodo.4916206"
+    size_gb: 30
+    loader: "ecgcal.data.code15"
+    role: "target domain; largest prevalence contrast with MIMIC"
+    notes: >
+      Signals are zero-padded to 4096 samples at 400 Hz inside HDF5 shards
+      (exams_part0..17.hdf5).  Padding must be stripped before resampling or
+      it injects a spurious site signature the encoder will latch onto.
+
+  ptbxl:
+    display: "PTB-XL"
+    country: DE
+    country_long: "Germany (Physikalisch-Technische Bundesanstalt)"
+    site_type: "mixed inpatient/outpatient, 1989-1996"
+    n_records: 21799          # v1.0.3; the v1.0.1 descriptor reported 21837
+    n_patients: 18869         # v1.0.3; v1.0.1 reported 18885
+    n_records_verify: true
+    fs_hz: 500
+    duration_s: 10
+    leads: 12
+    label_source: "cardiologist-validated SCP-ECG statements"
+    access: open
+    version: "1.0.3"
+    url: "https://physionet.org/content/ptb-xl/1.0.3/"
+    doi: "10.13026/kfzx-aw45"
+    size_gb: 3.2
+    loader: "ecgcal.data.ptbxl"
+    role: "target domain; the reference benchmark, fully open"
+    notes: >
+      Record/patient counts changed between v1.0.1 (21837/18885) and v1.0.3
+      (21799/18869) after withdrawals.  Pin the version in every result table.
+      Ships both 100 Hz and 500 Hz copies; we use 500 Hz and resample once.
+
+  chapman:
+    display: "Chapman-Shaoxing"
+    country: CN
+    country_long: "China (Shaoxing People's Hospital, Zhejiang)"
+    site_type: "general hospital"
+    n_records: 10247
+    n_patients: null
+    n_records_verify: true
+    fs_hz: 500
+    duration_s: 10
+    leads: 12
+    label_source: "SNOMED-CT, expert-adjudicated"
+    access: open
+    version: "challenge-2021/1.0.3"
+    url: "https://physionet.org/content/challenge-2021/1.0.3/"
+    size_gb: 1.1
+    loader: "ecgcal.data.physionet2021"
+    role: "target domain"
+
+  ningbo:
+    display: "Ningbo First Hospital"
+    country: CN
+    country_long: "China (Ningbo First Hospital, Zhejiang)"
+    site_type: "general hospital"
+    n_records: 34905
+    n_patients: null
+    n_records_verify: true
+    fs_hz: 500
+    duration_s: 10
+    leads: 12
+    label_source: "SNOMED-CT, expert-adjudicated"
+    access: open
+    version: "challenge-2021/1.0.3"
+    url: "https://physionet.org/content/challenge-2021/1.0.3/"
+    size_gb: 2.3
+    loader: "ecgcal.data.physionet2021"
+    role: "target domain; pooled with Chapman as CN-Zhejiang in the 45k analysis"
+
+  cpsc:
+    display: "CPSC-2018"
+    country: CN
+    country_long: "China (11 hospitals, China Physiological Signal Challenge)"
+    site_type: "multi-centre"
+    n_records: 6877
+    n_patients: null
+    n_records_verify: true
+    fs_hz: 500
+    duration_s: "6-60 (variable)"
+    leads: 12
+    label_source: "SNOMED-CT, expert-adjudicated"
+    access: open
+    version: "challenge-2021/1.0.3"
+    url: "https://physionet.org/content/challenge-2021/1.0.3/"
+    size_gb: 1.0
+    loader: "ecgcal.data.physionet2021"
+    role: "target domain; variable-length records test the crop policy"
+    notes: "CPSC-Extra (3453 records) kept as a held-out sub-site for the within-country shift control."
+
+  georgia:
+    display: "Georgia 12-lead"
+    country: US
+    country_long: "United States (Emory, southeastern US)"
+    site_type: "regional health system"
+    n_records: 10344
+    n_patients: null
+    n_records_verify: true
+    fs_hz: 500
+    duration_s: 10
+    leads: 12
+    label_source: "SNOMED-CT"
+    access: open
+    version: "challenge-2021/1.0.3"
+    url: "https://physionet.org/content/challenge-2021/1.0.3/"
+    size_gb: 0.7
+    loader: "ecgcal.data.physionet2021"
+    role: >
+      Within-country, cross-site control.  Same country as MIMIC, different
+      health system: isolates site effects from national effects.  This is the
+      negative control the whole 'national' claim depends on.
+
+  echonext:
+    display: "EchoNext"
+    country: US
+    country_long: "United States (Columbia / NewYork-Presbyterian)"
+    n_records: 100000        # descriptor states ~100k ECG-echo pairs
+    n_patients: null
+    n_records_verify: true
+    fs_hz: 500
+    duration_s: 10
+    leads: 12
+    label_source: "paired transthoracic echocardiography (structural heart disease)"
+    access: credentialed
+    version: "1.0"
+    url: "https://physionet.org/content/echonext/"
+    size_gb: 12
+    loader: "ecgcal.data.echonext"
+    role: >
+      Outcome-label arm.  Labels come from echo, not from ECG over-read, so it
+      is the one cohort where label-definition shift is (nearly) eliminated.
+      Used to show the cliff is not an artefact of annotation practice.
+    notes: "Record count is approximate in the registry and is overwritten by verify_cohorts.py."
+
+  korea:
+    display: "Kangbuk Samsung Health Study (health screening)"
+    country: KR
+    country_long: "South Korea (Kangbuk Samsung Hospital, Seoul/Suwon)"
+    site_type: "asymptomatic health-screening population"
+    n_records: null
+    n_patients: null
+    fs_hz: 500
+    duration_s: 10
+    leads: 12
+    label_source: "cardiologist over-read + linked screening outcomes"
+    access: restricted
+    version: null
+    url: null
+    size_gb: null
+    loader: "ecgcal.data.korea"
+    role: >
+      The decisive cohort.  Every other target is a hospital population; this
+      is a screening population, so its label prevalence pi_t is an order of
+      magnitude lower while the signal-generating process is unchanged.  It
+      therefore maximally separates the label-shift component from the
+      concept-shift component - the exact contrast Theorem 1 is built to
+      identify.  A method that only ever sees hospital-to-hospital transfer
+      cannot distinguish the two.
+    notes: >
+      Requires IRB approval and a data transfer agreement; signals never leave
+      the institutional environment.  See docs/KOREA_COHORT.md for the
+      federated protocol: only sufficient statistics (confusion matrices,
+      score histograms, bin counts) cross the boundary, which is enough for
+      every estimator in recalib_kit.
+
+# Country-level grouping used by the collapse map.
+country_groups:
+  US: [mimic, georgia, echonext]
+  BR: [code15]
+  DE: [ptbxl]
+  CN: [chapman, ningbo, cpsc]
+  KR: [korea]

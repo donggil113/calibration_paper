@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+# data + artifacts (never commit PHI or bulk signals)
+data/
+!data/README.md
+results/**/*.npz
+results/**/*.npy
+results/**/*.pt
+checkpoints/
+*.h5
+*.hdf5
+*.dat
+*.mat
+paper/figures/*.pdf
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.bbl
+paper/*.blg

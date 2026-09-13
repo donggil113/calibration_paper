@@ -1,0 +1,101 @@
+# ---------------------------------------------------------------------------
+# Harmonised ECG label space for cross-national calibration transfer.
+#
+# Design constraint: CODE-15 (Brazil) is annotated for exactly six rhythm /
+# conduction abnormalities.  Any label set that is to be shared by *every*
+# cohort is therefore bounded above by those six.  We define two tiers:
+#
+#   core6  - supported by every cohort in the study (incl. CODE-15).
+#            This is the primary label set for the headline transfer matrix.
+#   ext12  - adds six morphology/hypertrophy labels supported by the
+#            PhysioNet-family cohorts (PTB-XL, CPSC, Chapman, Ningbo, Georgia)
+#            and MIMIC-IV-ECG cart statements.  Used for the secondary
+#            analysis and for the concept-shift stress tests.
+#
+# SNOMED-CT codes follow the PhysioNet/CinC 2021 scored-label convention,
+# including its three equivalence classes (RBBB/CRBBB, PAC/SVPB, PVC/VPB).
+# ---------------------------------------------------------------------------
+
+version: "1.1"
+
+tiers:
+  core6:  [AF, IAVB, RBBB, LBBB, SB, STACH]
+  ext12:  [AF, IAVB, RBBB, LBBB, SB, STACH, PAC, PVC, LVH, STTC, MI, NORM]
+
+labels:
+  AF:
+    name: "Atrial fibrillation / flutter"
+    snomed: ["164889003", "164890007"]
+    ptbxl_scp: ["AFIB", "AFLT"]
+    code15: "AF"
+    note: "AFIB and AFLT merged; both trigger the same anticoagulation pathway."
+  IAVB:
+    name: "First-degree AV block"
+    snomed: ["270492004"]
+    ptbxl_scp: ["1AVB"]
+    code15: "1dAVb"
+  RBBB:
+    name: "Right bundle branch block (complete)"
+    snomed: ["59118001", "713427006"]    # equivalence class RBBB == CRBBB
+    ptbxl_scp: ["CRBBB"]
+    code15: "RBBB"
+    note: "Incomplete RBBB (IRBBB, 713426002) deliberately excluded: CODE-15 scores complete RBBB only."
+  LBBB:
+    name: "Left bundle branch block (complete)"
+    snomed: ["164909002"]
+    ptbxl_scp: ["CLBBB"]
+    code15: "LBBB"
+  SB:
+    name: "Sinus bradycardia"
+    snomed: ["426177001", "426627000"]
+    ptbxl_scp: ["SBRAD"]
+    code15: "SB"
+  STACH:
+    name: "Sinus tachycardia"
+    snomed: ["427084000"]
+    ptbxl_scp: ["STACH"]
+    code15: "ST"
+
+  # ---- ext12 only ----------------------------------------------------------
+  PAC:
+    name: "Premature atrial contraction"
+    snomed: ["284470004", "63593006"]    # equivalence class PAC == SVPB
+    ptbxl_scp: ["PAC", "SVARR"]
+    code15: null
+  PVC:
+    name: "Premature ventricular contraction"
+    snomed: ["427172004", "17338001"]    # equivalence class PVC == VPB
+    ptbxl_scp: ["PVC"]
+    code15: null
+  LVH:
+    name: "Left ventricular hypertrophy"
+    snomed: ["164873001", "55827005"]
+    ptbxl_scp: ["LVH"]
+    code15: null
+  STTC:
+    name: "ST-T wave abnormality"
+    snomed: ["164930006", "429622005", "164931005", "164934002", "59931005", "164917005"]
+    ptbxl_scp: ["NDT", "NST_", "ISC_", "ISCAL", "ISCIN", "ISCIL", "ISCAS", "ISCLA", "ISCAN",
+                "STD_", "STE_", "LNGQT", "DIG", "ANEUR", "EL"]
+    code15: null
+    note: "Aggregate of ST depression/elevation and T-wave abnormality; the single most site-dependent label."
+  MI:
+    name: "Myocardial infarction (any territory, incl. old)"
+    snomed: ["164865005", "57054005", "54329005", "164861001", "413444003"]
+    ptbxl_scp: ["IMI", "AMI", "ASMI", "ALMI", "ILMI", "IPMI", "IPLMI", "INJAS", "INJAL",
+                "INJIN", "INJIL", "INJLA", "LMI", "PMI"]
+    code15: null
+  NORM:
+    name: "Normal sinus rhythm, no abnormality"
+    snomed: ["426783006"]
+    ptbxl_scp: ["NORM", "SR"]
+    code15: null
+    note: "Treated as an explicit label, not as the complement, because cohorts differ in how exhaustively they annotate."
+
+# Labels that exist in source data but are intentionally dropped from the
+# unified space, with the reason.  Kept explicit so the mapping is auditable.
+excluded:
+  IRBBB:   "Not scored in CODE-15; merging into RBBB would create a label-definition shift confounded with concept shift."
+  PACE:    "Paced rhythm; device prevalence is a health-system artefact, analysed separately as a negative control."
+  LAD_RAD: "Axis deviation: derived, not independently adjudicated in several cohorts."
+  LQRSV:   "Voltage criteria depend on cohort-specific calibration of the recording cart."
