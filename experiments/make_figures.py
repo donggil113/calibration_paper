@@ -359,9 +359,11 @@ def fig_conformal(conf: pd.DataFrame, out: Path) -> Path | None:
     c = conf[conf.reliable_estimate]
     if c.empty:
         return None
-    order = ["split_target", "weighted_source", "hybrid_g0", "hybrid_g0.02", "hybrid_g0.05"]
+    order = ["split_target", "weighted_source", "weighted_source_oracle",
+             "hybrid_g0", "hybrid_g0.02", "hybrid_g0.05"]
     pretty = {"split_target": "split conformal\n(target labels)",
               "weighted_source": "reweighted source\n(0 labels)",
+              "weighted_source_oracle": "reweighted source\n(oracle prevalence)",
               "hybrid_g0": "hybrid γ=0", "hybrid_g0.02": "hybrid γ=0.02",
               "hybrid_g0.05": "hybrid γ=0.05"}
     methods = [m for m in order if m in set(c.method)]

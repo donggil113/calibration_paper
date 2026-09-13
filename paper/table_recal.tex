@@ -1,0 +1,19 @@
+\begin{table}[t]
+\centering\small
+\begin{tabular}{lrrr}
+\toprule
+Method & Target labels & Mean ECE & 90th pct ECE \\
+\midrule
+temperature scaling & 100 & 0.0441 & 0.0575 \\
+Platt scaling & 100 & 0.0297 & 0.0444 \\
+isotonic regression & 100 & 0.0309 & 0.0520 \\
+hybrid (Thm 2) & 100 & 0.1642 & 0.1748 \\
+\quad with the minimax prior & 100 & 0.1664 & 0.1788 \\
+\bottomrule
+\end{tabular}
+\caption{Recalibration across target sites, averaged over labels with at least
+25 positive cases. The label budget is the number of target cases adjudicated;
+the zero-label rows use only unlabeled target scores plus a labelled source
+sample. Generated from the run by \texttt{experiments/make\_numbers.py}.}
+\label{tab:recal}
+\end{table}

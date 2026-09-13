@@ -41,7 +41,13 @@ from ecgcal.models.train import TrainConfig, predict_scores, set_seed, train_mod
 from ecgcal.sim.generator import LABELS, SITE_LIBRARY, simulate_site
 from recalib_kit.recalibrate import TemperatureScaling
 
-__all__ = ["StudyConfig", "SiteData", "build_cohorts", "train_source_model", "score_sites", "run_pipeline"]
+__all__ = ["StudyConfig", "SiteData", "build_cohorts", "train_source_model", "score_sites",
+           "run_pipeline", "MIN_SOURCE_POSITIVES"]
+
+#: Below this many positive source cases per label, a fitted temperature does not
+#: establish source calibration and the source operator is too ill-conditioned
+#: for the unlabeled estimators built on it.
+MIN_SOURCE_POSITIVES = 100
 
 
 @dataclass
@@ -227,17 +233,36 @@ def train_source_model(
     # its own domain.  Skipping this would push residual source miscalibration
     # into the target numbers and let the decomposition attribute it to shift.
     raw_cal = model.raw_scores(src.signals[cal])
-    temps = {}
+    temps, thin = {}, []
     for j, name in enumerate(names):
         sel = src.observed[cal][:, j]
         yj = src.labels[cal][sel, j]
-        if sel.sum() < 50 or yj.sum() in (0, sel.sum()):
+        n_pos = int(yj.sum())
+        if sel.sum() < 50 or n_pos in (0, int(sel.sum())):
             temps[name] = 1.0
             continue
+        if n_pos < MIN_SOURCE_POSITIVES:
+            thin.append((name, n_pos))
         ts = TemperatureScaling().fit(raw_cal[sel, j], yj)
         temps[name] = float(ts.temperature_)
     model.temperatures = temps
     info["temperatures"] = temps
+    info["source_calibration_n"] = int(len(cal))
+    info["thin_source_labels"] = thin
+
+    if thin and verbose:
+        # The whole decomposition assumes the model starts calibrated on its own
+        # domain.  A temperature fitted on a handful of positives does not
+        # deliver that, the source operator built from the same split is badly
+        # conditioned, and every downstream unlabeled estimate inherits both -
+        # which looks like the free correction failing rather than like the
+        # source split being too small.
+        print(f"[warn] source calibration split has {len(cal)} records but only "
+              f"{', '.join(f'{n}={k}' for n, k in thin)} positives.")
+        print(f"[warn] Assumption 1 (source calibration) is not reliably established "
+              f"below ~{MIN_SOURCE_POSITIVES} positives per label. Increase n_source "
+              f"or the calibration fraction; the 'smoke' preset is a wiring check, "
+              f"not a scientific configuration.")
     info["seconds"] = time.time() - t0
     if verbose:
         print(f"[calibrate] source temperatures: " +

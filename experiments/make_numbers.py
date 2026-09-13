@@ -147,6 +147,55 @@ def build(res: Path) -> dict[str, str]:
     return m
 
 
+def recal_table_tex(res: Path) -> str | None:
+    """The recalibration comparison, as a LaTeX table generated from the run.
+
+    Generated rather than typed for the same reason the numbers are: a table
+    transcribed by hand is a table that silently goes stale.
+    """
+    path = res / "recalibration.csv"
+    if not path.exists():
+        return None
+    r = pd.read_csv(path)
+    if "reliable_estimate" in r:
+        r = r[r.reliable_estimate]
+    if r.empty:
+        return None
+
+    rows = [
+        ("identity", 0, "ship unchanged", "0"),
+        ("prior_correction", 0, "prior correction", "0"),
+        ("prior_correction_gated", 0, "\\quad gated by the unlabeled test", "0"),
+        ("prior_correction_minimax", 0, "\\quad minimax over the identified set", "0"),
+        ("temperature", 100, "temperature scaling", "100"),
+        ("platt", 100, "Platt scaling", "100"),
+        ("isotonic", 100, "isotonic regression", "100"),
+        ("hybrid", 100, "hybrid (Thm 2)", "100"),
+        ("hybrid_minimax", 100, "\\quad with the minimax prior", "100"),
+    ]
+    out = [
+        r"\begin{table}[t]", r"\centering\small",
+        r"\begin{tabular}{lrrr}", r"\toprule",
+        r"Method & Target labels & Mean ECE & 90th pct ECE \\", r"\midrule",
+    ]
+    for method, n_cal, label, budget in rows:
+        sub = r[(r.method == method) & (r.n_cal == n_cal)]
+        if sub.empty:
+            continue
+        out.append(
+            f"{label} & {budget} & {sub.ece_mean.mean():.4f} & {sub.ece_q90.mean():.4f} " + r"\\"
+        )
+    out += [
+        r"\bottomrule", r"\end{tabular}",
+        r"\caption{Recalibration across target sites, averaged over labels with at least",
+        r"25 positive cases. The label budget is the number of target cases adjudicated;",
+        r"the zero-label rows use only unlabeled target scores plus a labelled source",
+        r"sample. Generated from the run by \texttt{experiments/make\_numbers.py}.}",
+        r"\label{tab:recal}", r"\end{table}", "",
+    ]
+    return "\n".join(out)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("results", type=Path)
@@ -173,6 +222,11 @@ def main(argv=None) -> int:
         lines.append(rf"\expandafter\newcommand\csname NUM{key}\endcsname{{{v}}}")
     args.out.write_text("\n".join(lines) + "\n")
     print(f"wrote {args.out} with {len(macros)} macros")
+
+    tbl = recal_table_tex(args.results)
+    if tbl:
+        (args.out.parent / "table_recal.tex").write_text(tbl)
+        print(f"wrote {args.out.parent / 'table_recal.tex'}")
 
     # --- verify every \NUM{...} used in the manuscript actually resolves ------
     used: dict[str, list[str]] = {}

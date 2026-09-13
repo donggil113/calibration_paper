@@ -168,16 +168,22 @@ def recalibration_table(
         pi_s = float(sy.mean())
         pid = v["patient_ids"][v["mask"][:, j]]
 
-        for n_cal in n_cal_grid:
+        # Clip the budget grid to what this site can actually support: a
+        # calibration set that leaves no evaluation set produces no row, and a
+        # silently absent row is indistinguishable from a method that failed.
+        usable = [n for n in n_cal_grid if n == 0 or n <= len(s) - 100]
+        for n_cal in usable:
             for method in methods:
-                vals = []
-                reps = 1 if (n_cal == 0 and method in ("identity", "prior_correction")) else n_repeats
+                vals, failures = [], []
+                unlabeled = method.startswith("prior_correction") or method == "identity"
+                reps = 1 if (n_cal == 0 and unlabeled) else n_repeats
                 for r in range(reps):
                     cal, ev = calibration_split(len(s), max(n_cal, 1), seed=seed + r, patient_ids=pid)
                     if len(ev) < 100:
                         continue
                     try:
                         if n_cal == 0 and not unlabeled:
+                            # a labelled method with no labels is the identity
                             rec = fit_recalibrator("identity", s[ev][:1], y[ev][:1])
                         else:
                             rec = fit_recalibrator(
@@ -188,13 +194,22 @@ def recalibration_table(
                                 target_unlabeled=s,
                             )
                         vals.append(expected_calibration_error(rec.transform(s[ev]), y[ev]))
-                    except Exception:
-                        continue
+                    except Exception as exc:
+                        # Never swallow silently.  A bare `except: continue` here
+                        # hid a NameError for every n_cal=0 cell, and the only
+                        # symptom was an entire budget column missing from the
+                        # results - which looks like a design choice, not a bug.
+                        failures.append(f"{type(exc).__name__}: {exc}")
+                if failures:
+                    uniq = sorted(set(failures))
+                    print(f"    ! {site}/{name}/{method}@n={n_cal}: "
+                          f"{len(failures)}/{reps} draws failed -> {uniq[0]}")
                 if not vals:
                     continue
                 rows.append({
                     "site": site, "country": v["country"], "label": name,
                     "method": method, "n_cal": n_cal, "n_repeats": len(vals),
+                    "n_failed": len(failures),
                     "ece_mean": float(np.mean(vals)), "ece_median": float(np.median(vals)),
                     "ece_q90": float(np.quantile(vals, 0.9)),
                     "n_positive": int(y.sum()),
@@ -281,7 +296,16 @@ def conformal_table(
         ss, sy = _source_ref(scored, j)
         if ss.size < 100 or sy.sum() < 10 or s.size < 500:
             continue
-        pi_s, pi_t = float(sy.mean()), float(y.mean())
+        pi_s, pi_t_oracle = float(sy.mean()), float(y.mean())
+
+        # The unlabeled arms of Theorem 3 need a target prior, and in deployment
+        # that prior comes from BBSE on unlabeled scores - not from the labels.
+        # Handing them the oracle prevalence would overstate exactly the methods
+        # whose selling point is needing no labels, so both are reported and the
+        # gap between them is the cost of not knowing the site's prevalence.
+        edges = bin_edges(ss, 15, "equal_mass")
+        A, pi_s_vec = source_operator(ss, sy, edges)
+        pi_t_hat = float(bbse(A, pi_s_vec, target_histogram(s, edges)).prevalence)
 
         acc: dict[str, list] = {}
         for _ in range(n_repeats):
@@ -289,11 +313,12 @@ def conformal_table(
             cal, ev = perm[:n_cal], perm[n_cal:]
             cand = {
                 "split_target": split_conformal(s[cal], y[cal], s[ev], alpha),
-                "weighted_source": weighted_conformal(ss, sy, s[ev], pi_s, pi_t, alpha),
+                "weighted_source": weighted_conformal(ss, sy, s[ev], pi_s, pi_t_hat, alpha),
+                "weighted_source_oracle": weighted_conformal(ss, sy, s[ev], pi_s, pi_t_oracle, alpha),
             }
             for g in gammas:
                 cand[f"hybrid_g{g:g}"] = hybrid_transfer_conformal(
-                    s[cal], y[cal], ss, sy, s[ev], pi_s, pi_t, alpha=alpha, gamma=g
+                    s[cal], y[cal], ss, sy, s[ev], pi_s, pi_t_hat, alpha=alpha, gamma=g
                 )
             for k, cs in cand.items():
                 r = coverage_report(cs, y[ev])
@@ -304,6 +329,7 @@ def conformal_table(
             rows.append({
                 "site": site, "country": v["country"], "label": name, "method": k,
                 "alpha": alpha, "n_cal": n_cal,
+                "pi_t_oracle": pi_t_oracle, "pi_t_bbse": pi_t_hat,
                 "coverage_mean": float(a[:, 0].mean()),
                 "coverage_p05": float(np.quantile(a[:, 0], 0.05)),
                 "coverage_sd": float(a[:, 0].std()),

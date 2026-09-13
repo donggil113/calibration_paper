@@ -37,12 +37,69 @@ from analysis import (  # noqa: E402
 )
 from pipeline import StudyConfig, run_pipeline  # noqa: E402
 
+# 'smoke' is a wiring check, not a scientific configuration: its source
+# calibration split is far too small to establish source calibration, so its
+# unlabeled-correction numbers are not interpretable. Use medium or main.
 PRESETS = {
     "smoke":  dict(n_source=1200, n_target=800,  ssl_epochs=2, model_size="tiny",
                    targets=("ptbxl_like", "korea_like")),
     "medium": dict(n_source=4000, n_target=2500, ssl_epochs=5, model_size="small"),
     "main":   dict(n_source=8000, n_target=5000, ssl_epochs=10, model_size="small"),
 }
+
+
+def load_scored(path: Path) -> tuple[dict, list[str]]:
+    """Rebuild the scored-site structure from a persisted ``scored.npz``.
+
+    Training and scoring are the expensive half; the tables are the cheap half
+    and are the half that changes when an estimator is fixed.  Re-running the
+    analysis from stored scores makes every table reproducible without a
+    retrain, and means a corrected estimator can be applied to a run that
+    already happened rather than forcing a rerun that would also change the
+    model.
+    """
+    z = np.load(path, allow_pickle=True)
+    names = [str(s) for s in z["label_names"]]
+    sites = [str(s) for s in z["sites"]]
+    out: dict[str, dict] = {}
+    for k in sites:
+        rec = {
+            "scores": z[f"{k}_scores"],
+            "labels": z[f"{k}_labels"],
+            "mask": z[f"{k}_mask"],
+            "n": int(len(z[f"{k}_scores"])),
+        }
+        # Patient identifiers are not persisted; the analysis only uses them to
+        # draw calibration sets at the patient level, so each record becomes its
+        # own patient here.  That makes the label budget a count of records
+        # rather than of patients, which is the conservative direction, and the
+        # manifest records that the tables came from stored scores.
+        rec["patient_ids"] = np.arange(rec["n"])
+        if f"{k}_country" in z:
+            rec["country"] = str(z[f"{k}_country"])
+        else:
+            # Older archives predate the country field; recover it from the site
+            # registry rather than leaving "??" in a published table.
+            try:
+                from ecgcal.sim.generator import SITE_LIBRARY
+
+                rec["country"] = SITE_LIBRARY[k].country
+            except (ImportError, KeyError):
+                try:
+                    from ecgcal.data.registry import get_cohort
+
+                    rec["country"] = get_cohort(k).country
+                except KeyError:
+                    rec["country"] = "??"
+        out[k] = rec
+    if "source_ref_scores" in z:
+        src = next((k for k in sites if k.startswith("mimic")), sites[0])
+        out[src]["source_ref_scores"] = z["source_ref_scores"]
+        out[src]["source_ref_labels"] = z["source_ref_labels"]
+        out[src]["source_ref_mask"] = np.ones_like(z["source_ref_labels"], bool)
+    for k in out:
+        out[k].setdefault("is_source", "source_ref_scores" in out[k])
+    return out, names
 
 
 def _save(df: pd.DataFrame, out: Path, name: str) -> None:
@@ -66,6 +123,8 @@ def main(argv=None) -> int:
     ap.add_argument("--eps", type=float, default=0.02, help="calibration budget for n*")
     ap.add_argument("--alpha", type=float, default=0.1, help="1-alpha is the required coverage")
     ap.add_argument("--skip", nargs="*", default=[], help="tables to skip: recalibration nstar conformal")
+    ap.add_argument("--from-scored", type=Path, default=None,
+                    help="rebuild every table from a previous run's scored.npz, without retraining")
     args = ap.parse_args(argv)
 
     cfg = StudyConfig(arm=args.arm, source=args.source, seed=args.seed,
@@ -74,24 +133,38 @@ def main(argv=None) -> int:
     t0 = time.time()
 
     print(f"=== Calibration Cliff: preset={args.preset} arm={args.arm} ===")
-    run = run_pipeline(cfg)
-    scored, names = run["scored"], run["label_names"]
+    if args.from_scored:
+        src = args.from_scored
+        src = src / "scored.npz" if src.is_dir() else src
+        print(f"[scores] reusing {src} (no retraining)")
+        scored, names = load_scored(src)
+        run = {"model": type("M", (), {"train_info": {"reused_from": str(src)}})()}
+        for k, v in scored.items():
+            print(f"  {k:14s} n={v['n']:6d}  source={v['is_source']}")
+    else:
+        run = run_pipeline(cfg)
+        scored, names = run["scored"], run["label_names"]
 
     # Persist the scored arrays: every figure and every re-analysis then runs
     # from stored scores instead of retraining, which is what makes a number in
     # the manuscript checkable without a GPU-hour.
     out.mkdir(parents=True, exist_ok=True)
-    payload = {"label_names": np.array(names, dtype=object),
+    if args.from_scored:
+        payload = None
+    else:
+        payload = {"label_names": np.array(names, dtype=object),
                "sites": np.array(list(scored), dtype=object)}
-    for k, v in scored.items():
-        payload[f"{k}_scores"] = v["scores"]
-        payload[f"{k}_labels"] = v["labels"]
-        payload[f"{k}_mask"] = v["mask"]
-        if v.get("is_source"):
-            payload["source_ref_scores"] = v["source_ref_scores"]
-            payload["source_ref_labels"] = v["source_ref_labels"]
-    np.savez_compressed(out / "scored.npz", **payload)
-    print(f"  wrote scored.npz ({len(scored)} sites)")
+    if payload is not None:
+        for k, v in scored.items():
+            payload[f"{k}_scores"] = v["scores"]
+            payload[f"{k}_labels"] = v["labels"]
+            payload[f"{k}_mask"] = v["mask"]
+            payload[f"{k}_country"] = np.array(v["country"], dtype=object)
+            if v.get("is_source"):
+                payload["source_ref_scores"] = v["source_ref_scores"]
+                payload["source_ref_labels"] = v["source_ref_labels"]
+        np.savez_compressed(out / "scored.npz", **payload)
+        print(f"  wrote scored.npz ({len(scored)} sites)")
 
     print("\n[1/6] transfer table (discrimination vs calibration)")
     transfer = transfer_table(scored, names, seed=args.seed)
@@ -138,6 +211,7 @@ def main(argv=None) -> int:
         "environment": {"python": platform.python_version(), "numpy": np.__version__,
                         "pandas": pd.__version__, "platform": platform.platform()},
         "data_source": "real_bundles" if cfg.data_root else "simulator",
+        "tables_from": str(args.from_scored) if args.from_scored else "this run",
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str))
 
