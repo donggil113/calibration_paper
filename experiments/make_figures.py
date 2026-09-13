@@ -213,10 +213,10 @@ def fig_decomposition(decomp: pd.DataFrame, out: Path) -> Path | None:
     axes[1].set_xlim(0, 1.12)
     axes[1].set_xticks([0, 0.25, 0.5, 0.75, 1.0])
     axes[1].set_xticklabels(["0", "25%", "50%", "75%", "100%"])
-    axes[1].set_xlabel("share removable with no target labels")
+    axes[1].set_xlabel("share attributable to label shift")
     despine(axes[1])
     axes[1].grid(axis="y", visible=False)
-    title(axes[1], "Free fraction")
+    title(axes[1], "Label-shift share")
 
     fig.tight_layout()
     p = out / "fig3_decomposition.pdf"
@@ -298,7 +298,7 @@ def fig_collapse_map(transfer: pd.DataFrame, decomp: pd.DataFrame, out: Path) ->
     if not decomp.empty:
         ff = decomp.pivot_table(index="site", columns="label", values="free_fraction", aggfunc="mean")
         ff = ff.reindex(index=[s for s in sites if s in ff.index])
-        panels.append((ff, "Share fixable with no labels", "{:.0%}"))
+        panels.append((ff, "Share attributable to label shift", "{:.0%}"))
 
     fig, axes = plt.subplots(1, len(panels), figsize=(5.2 * len(panels), 0.52 * len(sites) + 2.2),
                              squeeze=False)

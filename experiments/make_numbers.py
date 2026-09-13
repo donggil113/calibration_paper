@@ -124,16 +124,23 @@ def build(res: Path) -> dict[str, str]:
     # --- Theorem 2 ----------------------------------------------------------
     if len(nstar):
         ns = nstar[nstar.reliable_estimate] if "reliable_estimate" in nstar else nstar
-        hyb = ns[ns.method == "hybrid"]
-        if len(hyb):
-            zero = hyb[hyb.n_star_empirical.fillna(-1) == 0]
-            m["nzerolabelsites"] = str(len(zero))
-            m["nstarrows"] = str(len(hyb))
-            fin = hyb.n_star_empirical.dropna()
+        # The label bill is quoted for the route the results actually recommend:
+        # measuring the target prevalence.  Quoting it for the hybrid would price
+        # a method that depends on an unlabeled prior this study found unsafe.
+        primary = "prevalence_correction" if (ns.method == "prevalence_correction").any() else "hybrid"
+        m["nstarmethod"] = primary.replace("_", " ")
+        pm = ns[ns.method == primary]
+        if len(pm):
+            m["nzerolabelsites"] = str(int((pm.n_star_empirical.fillna(-1) == 0).sum()))
+            m["nstarrows"] = str(len(pm))
+            fin = pm.n_star_empirical.dropna()
             if len(fin):
                 m["nstarmedian"] = _fmt(float(fin.median()), "{:.0f}")
                 m["nstarmax"] = _fmt(float(fin.max()), "{:.0f}")
-            m["nstarunreachable"] = str(int(hyb.n_star_empirical.isna().sum()))
+            m["nstarunreachable"] = str(int(pm.n_star_empirical.isna().sum()))
+        hyb = ns[ns.method == "hybrid"]
+        if len(hyb):
+            m["nstarhybridunreachable"] = str(int(hyb.n_star_empirical.isna().sum()))
         tmp = ns[ns.method == "temperature"]
         if len(tmp):
             m["ntempunreachable"] = str(int(tmp.n_star_empirical.isna().sum()))

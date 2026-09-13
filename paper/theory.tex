@@ -131,7 +131,7 @@ two targets with the same $\mu_t$ can have any $g_t$ whatsoever.
 
 \begin{remark}[The interaction term is a warning, not a nuisance]\label{rem:R}
 $R<0$ means the two shifts partially cancel.  A site in that regime looks
-better calibrated than either component alone implies, and applying the free
+better calibrated than either component alone implies, and applying the prior
 correction there can \emph{increase} $\mathrm{CE}_1$.  Because $R$ is estimable
 from the same labeled sample as $D_{\mathrm{concept}}$, the regime is
 detectable rather than merely possible, and \S\ref{sec:results} reports it.
@@ -258,8 +258,10 @@ can be silently fooled.
 
 Proposition~\ref{prop:gof} is nonetheless the most immediately deployable
 statement in this paper: a hospital can evaluate it on its own unlabeled ECGs, before any chart
-review, and learn whether a free prior correction will suffice or whether it
-must budget for labels.  Two implementation points matter and are documented
+review, and learn whether its shift is reducible to prevalence at all.  As
+Remark~\ref{rem:gofblind} and \S\ref{sec:results-recal} record, a
+non-rejection does not license an unlabeled correction; a rejection does rule
+one out.  Two implementation points matter and are documented
 with the software.  First, when $A$ is itself estimated, the variance
 correction is \emph{per bin} --- the source contributes
 $\sum_y w_y^2 A[m,y]/n_s$, weighted by the importance weights and far from
@@ -307,8 +309,10 @@ doing it.
 \item \textbf{(Necessity, and a threshold.)}  If $\Gamma\ge\varepsilon$, any
 procedure whatsoever requires
 $n\ge(1-2\alpha)^{2}/(8\varepsilon^{2})$.
-If $\Gamma<\varepsilon$, no such lower bound exists: $n^\star=0$ and the free
-correction alone meets the budget.
+If $\Gamma<\varepsilon$, no such lower bound exists: $n^\star=0$, because the
+residual left after the prior correction already meets the budget.  Note this
+says nothing about how $\pi_t$ was obtained --- $\Gamma$ is defined with respect
+to the correction actually applied.
 \end{enumerate}
 \end{theorem}
 
@@ -365,7 +369,7 @@ they partition the parameter space at $\Gamma=\varepsilon$:
 \toprule
 regime & one-parameter recalibration & any procedure \\
 \midrule
-$\Gamma \ll \varepsilon$ & $n=0$ suffices (the free correction) & $n=0$ \\
+$\Gamma \ll \varepsilon$ & $n=0$: already within budget & $n=0$ \\
 $\Gamma < \varepsilon$ & $n \le z^2 L^2 / \big(I(\varepsilon-\Gamma)^2\big)$ & --- \\
 $\Gamma \ge \varepsilon$ & unattainable at any $n$ & $n \ge (1-2\alpha)^2/(8\varepsilon^2)$ \\
 \bottomrule

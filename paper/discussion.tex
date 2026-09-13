@@ -70,10 +70,15 @@ cohorts; we have not used the simulator to support them, and the two are never
 pooled in one table.
 
 \paragraph{What would falsify this.}
-A site with a large prevalence shift, a non-rejecting goodness-of-fit test, and
-a free correction that fails to recover most of its calibration error would
+A site with a large prevalence shift where correcting with the \emph{measured}
+target prevalence fails to recover most of the calibration error would
 contradict Theorem~\ref{thm:decomp}(c) as applied here.  A site where the
 measured label requirement materially exceeds the plug-in bound at its measured
-$\Gamma$ would contradict Theorem~\ref{thm:samplesize}(a).  Both are checkable
-with the released code on any cohort a reader has access to, which is the point
-of releasing it.
+$\Gamma$ would contradict Theorem~\ref{thm:samplesize}(a).
+
+Our own negative result is the most checkable claim in the paper and the one we
+would most like tested.  If, on real cohorts, an unlabeled prevalence estimate
+does recover the label-shift component --- if the shift there is off-cone where
+ours was on-cone --- then the cheaper workflow we could not justify becomes
+available, and we would want that known.  Everything needed to check it is in
+the released code, which is the point of releasing it.

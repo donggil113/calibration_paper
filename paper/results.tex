@@ -50,7 +50,7 @@ emits high probabilities, which is the point.}
 \label{fig:reliability}
 \end{figure}
 
-\subsection{Theorem 1: how much of the cliff is free}
+\subsection{Theorem 1: how much of the cliff is prevalence}
 
 Applying the decomposition at every site and label, and pooling,
 \NUM{freefractionpooled} of the squared calibration error is attributable to
@@ -60,13 +60,18 @@ contributes \NUM{interactionsharepooled}.  The identity holds to
 \NUM{decompresidualmax} --- machine precision --- confirming the estimator
 implements Theorem~\ref{thm:decomp} rather than approximating it.
 
-The free fraction varies sharply and interpretably by site
+The label-shift share varies sharply and interpretably by site
 (Figure~\ref{fig:decomposition}).  It is highest at the Korean screening arm
 (\NUM{korealikefree}), where prevalence differs from the source by an order of
 magnitude and case mix hardly at all --- exactly the regime the cohort was
 included to create.  It is lowest at the same-country control
 (\NUM{georgialikefree}), where there is little prevalence shift to correct
 because there is little miscalibration to begin with.
+
+We call this the label-shift share rather than the ``free'' share deliberately.
+It is the part of the cliff that \emph{one number} would repair.  Whether that
+number can be had without labels is a separate question, and
+\S\ref{sec:results-recal} answers it in the negative.
 
 \paragraph{The interaction term is not negligible.}
 \NUM{nnegativeinteraction} of \NUM{ndecomprows} site--label pairs show a
@@ -83,9 +88,9 @@ segment honestly.}
 \label{fig:decomposition}
 \end{figure}
 
-\subsection{Identification: when the free correction can be trusted}
+\subsection{Identification: can the prevalence be recovered without labels?}
 
-The free correction depends on an estimate of $\pi_t$ obtained under an
+The unlabeled correction depends on an estimate of $\pi_t$ obtained under an
 assumption that these sites violate.  Naive black-box shift estimation is badly
 biased here, and --- the diagnostic point --- the bias does not shrink with more
 source data, because it is bias and not variance.
@@ -108,7 +113,7 @@ dominate a mean relative error, which is why we report the log-scale summary and
 state the limitation rather than the headline.
 
 The operational conclusion is the one the rest of this section follows.  A site
-can use its own unlabeled recordings to rule the free correction \emph{out} ---
+can use its own unlabeled recordings to rule the unlabeled correction \emph{out} ---
 a rejection is informative and actionable.  It cannot use them to rule it
 definitively \emph{in}.  That asymmetry is why the recommended unlabeled
 estimator is the minimax correction, which bounds the damage under an assumed
@@ -176,14 +181,18 @@ answer.}
 \subsection{Theorem 2: the label bill}
 
 At a budget of $\varepsilon=\NUM{epsbudget}$ with confidence
-$1-\alpha=\NUM{alphalevel}$, \NUM{nzerolabelsites} of \NUM{nstarrows}
-site--label pairs require \emph{zero} labeled target cases: their residual
-concept shift already falls inside the budget, which is the threshold of
-Theorem~\ref{thm:samplesize}(c).  Among those that do require labels the median
-requirement is \NUM{nstarmedian} adjudicated cases.  \NUM{nstarunreachable}
-pairs do not reach the budget at any tested count, and for those the honest
-advice is a richer recalibration family or a re-examined model, not more
-labels.
+$1-\alpha=\NUM{alphalevel}$, and pricing the route the previous section
+recommends (\NUM{nstarmethod}), the median requirement across site--label pairs
+is \NUM{nstarmedian} adjudicated cases, with \NUM{nzerolabelsites} of
+\NUM{nstarrows} pairs needing none at all because their calibration already sits
+inside the budget.  \NUM{nstarunreachable} pairs do not reach it at any tested
+count; for those the honest advice is a richer recalibration family or a
+re-examined model, not more labels.
+
+The threshold of Theorem~\ref{thm:samplesize}(c) is what makes these numbers
+small: a site whose residual shift after the prevalence correction already falls
+inside its budget owes nothing further, and it is the prevalence term --- the
+part a few dozen labels buy --- that moves most sites across that line.
 
 The analytic bounds are complementary rather than a bracket: as
 Remark~\ref{rem:regimes} sets out, the sufficient bound is finite only below the
@@ -217,16 +226,16 @@ draws.  Bars below the rule are invalid.}
 \subsection{The collapse map}
 
 Figure~\ref{fig:collapse} summarises both halves of the result by site and
-label: how far calibration falls, and how much of that fall a hospital can
-repair without labeling anything.  It is the object we propose as the
+label: how far calibration falls, and how much of that fall one
+correctly measured number would repair.  It is the object we propose as the
 deployment artefact --- not a single external-validation AUROC, but a statement
 per site and per label of how much the probabilities move and how much of that
-movement is free to undo.
+movement one measured number would undo.
 
 \begin{figure}[t]\centering
 \includegraphics[width=\textwidth]{figures/fig5_collapse_map.pdf}
 \caption{Collapse map. Left: ECE relative to the source site. Right: the share
-removable with no target labels. Single-hue ramps, direct-labelled so the
-figure survives greyscale printing.}
+attributable to label shift --- what one correctly measured number would repair.
+Single-hue ramps, direct-labelled so the figure survives greyscale printing.}
 \label{fig:collapse}
 \end{figure}

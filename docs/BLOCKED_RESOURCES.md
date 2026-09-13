@@ -50,12 +50,28 @@ instrument that can falsify them, and the validation is in `tests/test_theory.py
   approximately the concept-shift budget and its repair by level inflation.
 
 **Affected — awaiting cohort access.** The empirical magnitudes: the size of the
-cliff at each real site, the real free fraction per country, the real label bill
-per hospital, the collapse map. These are reported in this repository from the
-simulator, which is configured with prevalences near published figures but is
-not a substitute for the cohorts. Every results table is stamped with
+cliff at each real site, the real label-shift share per country, the real label
+bill per hospital, the collapse map. These are reported in this repository from
+the simulator, which is configured with prevalences near published figures but
+is not a substitute for the cohorts. Every results table is stamped with
 `data_source: simulator` in its `manifest.json`, and `build_cohorts` refuses to
 mix real and simulated sites in one table.
+
+**One empirical finding is reported as a negative result and deserves its own
+note.** In the simulated transfer matrix, applying the prior correction with a
+prevalence estimated from *unlabeled* target data made calibration worse than
+shipping the model unchanged at every site — pooled ECE 0.119 against 0.040 —
+while the same correction with the *true* prevalence removed 40% of the error.
+Small samples and operator conditioning were tested and ruled out; the cause is
+the mechanism Theorem 1 predicts, concept shift along the label-shift cone,
+where the prevalence is unidentified and no unlabeled test can see it.
+
+This is a claim about the *estimator*, not about ECG cohorts specifically, so
+it does not depend on the blocked data in the way the magnitudes do. But it is
+the finding a reader with cohort access should check first, because it is the
+one that changed this work's recommendation — from "apply the free correction"
+to "measure your prevalence on a few dozen cases". If it does not reproduce on
+real cohorts, we would want to know.
 
 ## Running it with data access
 
