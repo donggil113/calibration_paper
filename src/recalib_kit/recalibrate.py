@@ -219,6 +219,9 @@ class PrevalenceCorrection(Recalibrator):
             return v
         return prior_correction(v, self.pi_s, self.pi_t)
 
+    # The only requirement in this module that depends on instance state, so it
+    # stays a property.  Callers must read it from an INSTANCE, never from the
+    # class: a property accessed on the class is a descriptor, not a number.
     @property
     def n_labels_required(self) -> int:
         return max(self.min_positives, 1)
@@ -253,14 +256,12 @@ class TemperatureScaling(Recalibrator):
         self.temperature_ = float(res.x)
         return self
 
+    n_labels_required = 1
+
     def transform(self, scores):
         if self.temperature_ is None:
             raise RuntimeError("not fitted")
         return expit(_safe_logit(scores) / self.temperature_)
-
-    @property
-    def n_labels_required(self) -> int:
-        return 1
 
 
 class PlattScaling(Recalibrator):
@@ -406,16 +407,14 @@ class HybridPriorFewShot(Recalibrator):
         self.temp.fit(self.prior.transform(scores), labels)
         return self
 
+    n_labels_required = 1
+
     def transform(self, scores):
         return self.temp.transform(self.prior.transform(scores))
 
     @property
     def temperature_(self) -> float | None:
         return self.temp.temperature_
-
-    @property
-    def n_labels_required(self) -> int:
-        return 1
 
 
 class GatedPriorCorrection(Recalibrator):
@@ -806,14 +805,12 @@ class SelectByCrossValidation(Recalibrator):
         self.model_ = obj
         return self
 
+    n_labels_required = 20
+
     def transform(self, scores):
         if self.model_ is None:
             raise RuntimeError("not fitted")
         return self.model_.transform(scores)
-
-    @property
-    def n_labels_required(self) -> int:
-        return 20
 
 
 METHODS: dict[str, type[Recalibrator]] = {

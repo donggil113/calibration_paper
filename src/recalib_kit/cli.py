@@ -39,6 +39,17 @@ def _read(path: Path, score_col: str, label_col: str | None, require_labels: boo
     return s, y
 
 
+def _labels_required(method: str) -> int:
+    """How many labels a method needs, resolved on an instance."""
+    from .recalibrate import METHODS
+
+    cls = METHODS[method]
+    try:
+        return int(cls().n_labels_required)
+    except TypeError:                       # needs pi_s at construction
+        return int(cls(pi_s=0.5).n_labels_required)
+
+
 def _emit(obj: dict, as_json: bool) -> None:
     if as_json:
         print(json.dumps(obj, indent=2, default=float))
@@ -84,9 +95,10 @@ def cmd_audit(args) -> int:
         "min_concept_shift_gamma": b["gamma_min"],
         "D_label_recoverable_free": b["d_label_l1"],
     }, args.json)
-    print("\n  Next step: `recalib budget` prices the labelled work. In our transfer")
-    print("  matrix the cheapest effective step was measuring the target prevalence")
-    print("  on a few dozen adjudicated cases; past ~100 labels, isotonic dominates.")
+    print("\n  Next step: `recalib budget` prices the labelled work, then")
+    print("  `recalib fix` (default --method cv_select) spends those labels first on")
+    print("  deciding whether your site needs recalibration at all. Fitting a map at a")
+    print("  site that does not need one made calibration worse in our transfer matrix.")
     return 0
 
 
@@ -150,7 +162,10 @@ def cmd_fix(args) -> int:
     s, sy = _read(args.source, args.score_col, args.label_col, True)
     pi_s = float(sy.mean())
 
-    needs_labels = METHODS[args.method].n_labels_required > 0
+    # Resolve on an instance: one estimator's requirement depends on its own
+    # configuration, so the attribute is a property there and reading it off the
+    # class yields a descriptor rather than a number.
+    needs_labels = _labels_required(args.method) > 0
     if needs_labels and ty is None:
         raise SystemExit(f"--method {args.method} needs target labels")
 
@@ -162,6 +177,9 @@ def cmd_fix(args) -> int:
     if hasattr(rec, "gate_"):
         out["gate_applied"] = rec.gate_.get("applied")
         out["gate_reason"] = rec.gate_.get("reason")
+    if hasattr(rec, "selected_"):
+        out["selected"] = rec.selected_
+        out["cv_scores"] = {k: round(v, 5) for k, v in getattr(rec, "scores_", {}).items()}
     if hasattr(rec, "interval_") and rec.interval_:
         out["identified_interval"] = [rec.interval_.get("pi_lo"), rec.interval_.get("pi_hi")]
         out["prior_used"] = getattr(rec, "pi_t", None)
@@ -227,7 +245,7 @@ def main(argv=None) -> int:
     f = sub.add_parser("fix", help="apply a recalibration")
     f.add_argument("--target", type=Path, required=True)
     f.add_argument("--source", type=Path, required=True)
-    f.add_argument("--method", default="prevalence_correction")
+    f.add_argument("--method", default="cv_select")
     f.add_argument("--out", type=Path, default=None)
     f.set_defaults(func=cmd_fix)
 

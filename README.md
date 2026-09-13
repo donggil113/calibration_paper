@@ -83,9 +83,9 @@ recalib audit  --target site_scores.csv --source source_scores.csv
 # 2. If not, price the labeled work before committing to it.
 recalib budget --target site_scores.csv --source source_scores.csv --eps 0.02
 
-# 3. Apply a correction and report what it did.
+# 3. Decide whether to recalibrate, and do it if so.
 recalib fix    --target site_scores.csv --source source_scores.csv \
-               --method prior_correction_minimax --out calibrated.csv
+               --method cv_select --out calibrated.csv
 ```
 
 **Read `audit` as a veto, not a licence.** A rejection tells you the shift at
@@ -95,10 +95,13 @@ label-shift cone, and that is the direction cross-national shift takes. In our
 transfer matrix the unlabeled correction was worse than shipping unchanged at
 every site, gated or not.
 
-The recommended route is `--method prevalence_correction`, which measures the
-target prevalence on a small adjudicated sample instead of inferring it. It
-beats shipping unchanged from a few dozen cases and plateaus shortly after;
-past ~100 labels use `isotonic`.
+The recommended route is `--method cv_select` (the default), which spends the
+labels on the *decision* as well as the fit. Recalibration is not free: broken
+out by site and label, a fitted isotonic map was worse than shipping unchanged
+in a majority of pairs at small budgets, and at the one site with no cliff it
+made calibration measurably worse. Cross-validated selection — with "do nothing"
+always among the candidates — picks a map where there is a cliff and leaves the
+model alone where there is not.
 
 ### For a cohort that cannot export data
 
