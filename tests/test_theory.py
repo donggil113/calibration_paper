@@ -539,3 +539,62 @@ def test_prevalence_correction_refuses_a_sample_with_no_positives():
     rec = fit_recalibrator("prevalence_correction", s[neg], yt[neg], pi_s=PI_S)
     assert rec.pi_t is None
     assert ece(rec.transform(s), yt) == pytest.approx(ece(s, yt), abs=1e-12)
+
+
+# ------------------------------------- recalibrate only where there is a cliff
+def _cliff_site(pi, shift, n=30000, seed=0):
+    rng = np.random.default_rng(seed)
+    y = (rng.random(n) < pi).astype(float)
+    x = np.where(y == 1, rng.normal(1.5, 1, n), rng.normal(-1.5, 1, n))
+    o = (pi / (1 - pi)) * np.exp(3.0 * x) * shift
+    return o / (1 + o), y
+
+
+def test_recalibration_hurts_a_site_that_has_no_cliff():
+    """The result that motivates cross-validated selection.
+
+    Averaged over sites, isotonic regression beat shipping unchanged at every
+    budget. Per site and label it was *worse* in a majority of pairs: the
+    average was carried by the single worst-calibrated site, while at sites
+    already acceptably calibrated the fitted map added more estimation noise
+    than it removed bias.
+    """
+    from recalib_kit.metrics import expected_calibration_error as ece
+
+    s, y = _cliff_site(0.05, 1.0, seed=100)          # already calibrated
+    cal, ev = slice(0, 50), slice(50, None)
+    raw = ece(s[ev], y[ev])
+    iso = ece(fit_recalibrator("isotonic", s[cal], y[cal]).transform(s[ev]), y[ev])
+    assert iso > 2 * raw, "expected recalibration to hurt a well-calibrated site"
+
+
+def test_cv_selection_leaves_a_well_calibrated_site_alone():
+    from recalib_kit.metrics import expected_calibration_error as ece
+
+    s, y = _cliff_site(0.05, 1.0, seed=101)
+    cal, ev = slice(0, 50), slice(50, None)
+    rec = fit_recalibrator("cv_select", s[cal], y[cal])
+    assert rec.selected_ == "identity", rec.scores_
+    assert ece(rec.transform(s[ev]), y[ev]) == pytest.approx(ece(s[ev], y[ev]), abs=1e-12)
+
+
+def test_cv_selection_acts_where_there_is_a_real_cliff():
+    from recalib_kit.metrics import expected_calibration_error as ece
+
+    s, y = _cliff_site(0.05, 8.0, seed=102)
+    cal, ev = slice(0, 100), slice(100, None)
+    rec = fit_recalibrator("cv_select", s[cal], y[cal])
+    assert rec.selected_ != "identity", rec.scores_
+    assert ece(rec.transform(s[ev]), y[ev]) < ece(s[ev], y[ev])
+
+
+def test_cv_selection_never_badly_underperforms_shipping_unchanged():
+    """Across cliff sizes, selection should not be the worst option anywhere."""
+    from recalib_kit.metrics import expected_calibration_error as ece
+
+    for k, shift in enumerate((1.0, 1.3, 2.0, 4.0, 8.0)):
+        s, y = _cliff_site(0.05, shift, seed=110 + k)
+        cal, ev = slice(0, 80), slice(80, None)
+        raw = ece(s[ev], y[ev])
+        cv = ece(fit_recalibrator("cv_select", s[cal], y[cal]).transform(s[ev]), y[ev])
+        assert cv <= raw * 1.5 + 5e-3, (shift, raw, cv)

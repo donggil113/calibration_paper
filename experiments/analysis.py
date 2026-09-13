@@ -148,7 +148,8 @@ def recalibration_table(
     n_cal_grid: tuple[int, ...] = (0, 25, 50, 100, 200, 400, 800),
     methods: tuple[str, ...] = (
         "identity", "prior_correction", "prior_correction_gated", "prior_correction_minimax",
-        "prevalence_correction", "temperature", "platt", "isotonic", "hybrid", "hybrid_minimax",
+        "prevalence_correction", "temperature", "platt", "isotonic", "cv_select",
+        "hybrid", "hybrid_minimax",
     ),
     n_repeats: int = 20,
     seed: int = 0,

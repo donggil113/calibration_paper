@@ -77,6 +77,7 @@ __all__ = [
     "MinimaxPriorCorrection",
     "GatedHybrid",
     "MinimaxHybrid",
+    "SelectByCrossValidation",
     "fit_recalibrator",
     "METHODS",
 ]
@@ -700,6 +701,121 @@ class MinimaxHybrid(HybridPriorFewShot):
         return self.prior.interval_
 
 
+class SelectByCrossValidation(Recalibrator):
+    r"""Choose among candidate recalibrators - including doing nothing - by cross-validation.
+
+    This exists because of a result that inverts the obvious reading of a
+    recalibration comparison.  Averaged over sites, isotonic regression beat
+    shipping unchanged at every label budget we tested.  Per site and label, it
+    was *worse* than shipping unchanged in 21 of 28 pairs at 25 labels and 14 of
+    28 at 100: the average was carried by the single site with the largest
+    cliff, while at sites whose calibration was already acceptable the fitted
+    map added more estimation noise than it removed bias.
+
+    Recalibration is therefore not something to apply indiscriminately.  It is a
+    decision, and the same labels that would fit a map can decide whether to fit
+    one.  This estimator holds out folds of the calibration set, scores every
+    candidate - with :class:`Identity` always among them - on data it did not
+    fit, and keeps the winner.  At a site with a real cliff it selects a map; at
+    a site without one it selects the identity and leaves the model alone.
+
+    ``one_se`` applies the one-standard-error rule: among candidates within one
+    standard error of the best, prefer the simpler one (candidates are ordered
+    simplest-first).  Ties therefore fall to doing nothing, which is the right
+    default when the evidence does not distinguish the options.
+    """
+
+    name = "cv_select"
+
+    def __init__(
+        self,
+        candidates: tuple[str, ...] = ("identity", "temperature", "platt", "isotonic"),
+        n_folds: int = 5,
+        n_bins: int = 10,
+        one_se: bool = True,
+        seed: int = 0,
+        pi_s: float = 0.5,
+    ):
+        self.candidates = tuple(candidates)
+        self.n_folds = n_folds
+        self.n_bins = n_bins
+        self.one_se = one_se
+        self.seed = seed
+        self.pi_s = pi_s
+        self.selected_: str | None = None
+        self.model_: Recalibrator | None = None
+        self.scores_: dict[str, float] = {}
+
+    def _build(self, name: str) -> Recalibrator:
+        cls = METHODS[name]
+        import inspect
+
+        try:
+            takes = "pi_s" in inspect.signature(cls).parameters
+        except (TypeError, ValueError):
+            takes = False
+        return cls(pi_s=self.pi_s) if takes else cls()
+
+    def fit(self, scores, labels=None, **kw) -> "SelectByCrossValidation":
+        from .metrics import expected_calibration_error
+
+        s = np.asarray(scores, float).ravel()
+        y = np.asarray(labels, float).ravel()
+        n = s.size
+        rng = np.random.default_rng(self.seed)
+        folds = np.array_split(rng.permutation(n), min(self.n_folds, max(n, 1)))
+
+        per_fold: dict[str, list[float]] = {c: [] for c in self.candidates}
+        for k in range(len(folds)):
+            te = folds[k]
+            tr = np.concatenate([folds[i] for i in range(len(folds)) if i != k]) if len(folds) > 1 else te
+            if te.size < 5 or tr.size < 5:
+                continue
+            for name in self.candidates:
+                try:
+                    obj = self._build(name)
+                    if obj.n_labels_required > 0:
+                        obj.fit(s[tr], y[tr])
+                    per_fold[name].append(
+                        expected_calibration_error(obj.transform(s[te]), y[te], self.n_bins)
+                    )
+                except Exception:
+                    per_fold[name].append(float("inf"))
+
+        means, ses = {}, {}
+        for name, vals in per_fold.items():
+            v = np.array([x for x in vals if np.isfinite(x)])
+            means[name] = float(v.mean()) if v.size else float("inf")
+            ses[name] = float(v.std(ddof=1) / np.sqrt(v.size)) if v.size > 1 else 0.0
+        self.scores_ = means
+
+        best = min(means, key=lambda k: means[k])
+        pick = best
+        if self.one_se and np.isfinite(means[best]):
+            cutoff = means[best] + ses[best]
+            # candidates are ordered simplest-first, so this lands on the
+            # simplest option that is not distinguishably worse
+            for name in self.candidates:
+                if means[name] <= cutoff:
+                    pick = name
+                    break
+        self.selected_ = pick
+        obj = self._build(pick)
+        if obj.n_labels_required > 0:
+            obj.fit(s, y)
+        self.model_ = obj
+        return self
+
+    def transform(self, scores):
+        if self.model_ is None:
+            raise RuntimeError("not fitted")
+        return self.model_.transform(scores)
+
+    @property
+    def n_labels_required(self) -> int:
+        return 20
+
+
 METHODS: dict[str, type[Recalibrator]] = {
     "identity": Identity,
     "prior_correction": PriorCorrection,
@@ -713,6 +829,7 @@ METHODS: dict[str, type[Recalibrator]] = {
     "prior_correction_minimax": MinimaxPriorCorrection,
     "hybrid_gated": GatedHybrid,
     "hybrid_minimax": MinimaxHybrid,
+    "cv_select": SelectByCrossValidation,
 }
 
 

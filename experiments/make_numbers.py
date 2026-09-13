@@ -73,8 +73,9 @@ def build(res: Path) -> dict[str, str]:
             key = str(r.site).replace("_", "")
             m[f"{key}eceratio"] = _fmt(r.ece_ratio, "{:.2f}") + r"$\times$"
             m[f"{key}aurocdelta"] = _fmt(r.auroc_delta, "{:+.3f}")
-            if "free_fraction" in r and np.isfinite(r.free_fraction):
-                m[f"{key}free"] = _fmt(100 * np.clip(r.free_fraction, 0, 1), "{:.0f}") + r"\%"
+            col = "label_shift_share" if "label_shift_share" in r else "free_fraction"
+            if col in r and np.isfinite(r[col]):
+                m[f"{key}free"] = _fmt(100 * np.clip(r[col], 0, 1), "{:.0f}") + r"\%"
 
     # --- Theorem 1 ----------------------------------------------------------
     if len(decomp):
@@ -91,6 +92,7 @@ def build(res: Path) -> dict[str, str]:
         before, after = dd.ece_before.sum(), dd.ece_after_prior_fix.sum()
         if before > 0:
             m["oraclegainpooled"] = _fmt(100 * (1 - after / before), "{:.0f}") + r"\%"
+        share_col = "label_shift_share" if "label_shift_share" in dd else "free_fraction"
         per_site = dd.groupby("site").apply(
             lambda g: 1 - g.ece_after_prior_fix.sum() / max(g.ece_before.sum(), 1e-12),
             include_groups=False,
@@ -175,6 +177,30 @@ def build(res: Path) -> dict[str, str]:
                 m[f"ece{key}"] = _fmt(sub.ece_mean.mean(), "{:.4f}")
         if np.isfinite(base):
             m["eceidentity"] = _fmt(base, "{:.4f}")
+
+        # How often a fitted map is worse than shipping unchanged, per pair -
+        # the number the averages hide and the reason selection exists.
+        iso = r[r.method == "isotonic"][["site", "label", "n_cal", "ece_mean"]]
+        idn = r[r.method == "identity"][["site", "label", "n_cal", "ece_mean"]].rename(
+            columns={"ece_mean": "identity_ece"}
+        )
+        cmp_ = iso.merge(idn, on=["site", "label", "n_cal"])
+        for budget, key in ((25, "atlow"), (100, "athigh")):
+            sub = cmp_[cmp_.n_cal == budget]
+            if len(sub):
+                m[f"isoworse{key}"] = str(int((sub.ece_mean > sub.identity_ece).sum()))
+                m["isopairs"] = str(len(sub))
+        ctl = r[(r.site == "georgia_like") & (r.n_cal == 50)]
+        if len(ctl):
+            for meth, key in (("identity", "georgiaidentity"), ("isotonic", "georgiaisotonic")):
+                v = ctl[ctl.method == meth].ece_mean
+                if len(v):
+                    m[key] = _fmt(float(v.mean()), "{:.4f}")
+        cvs = r[r.method == "cv_select"]
+        if len(cvs):
+            sub = cvs[cvs.n_cal == 100]
+            if len(sub):
+                m["ececvselect"] = _fmt(float(sub.ece_mean.mean()), "{:.4f}")
 
         # Where measuring the prevalence starts to pay, and where it plateaus.
         prev = r[r.method == "prevalence_correction"].groupby("n_cal").ece_mean.mean()
