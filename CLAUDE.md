@@ -50,11 +50,22 @@ Two consequences that have already caused real bugs here:
    broken.
 7. **The debiased ECE estimator is not clipped at zero.** Clipping reintroduces
    positive bias exactly where one would claim a model is well calibrated.
+8. **Never write `1 - (1 - p)`.** It equals `p` exactly and returns `0` for any
+   `p` below the double-precision resolution of 1 — which is what a model that
+   separates a label cleanly produces. It collapsed every conformal calibration
+   score to zero, emptied every prediction set, and drove measured coverage to
+   0.02 on a procedure whose guarantee is distribution-free. Compute each branch
+   directly, and keep the calibration side and the set-construction side written
+   as the *same* expression.
+9. **Recalibrating is not free.** Broken out by site and label, a fitted map was
+   worse than shipping unchanged in a majority of pairs at small budgets, and it
+   made the one site with no cliff measurably worse. Any new recalibration
+   method is compared per pair against `identity`, not only on the mean.
 
 ## Before committing a change that touches an estimator
 
 ```bash
-pytest -q                                     # 59 tests
+pytest -q                                     # 79 tests
 python experiments/run_study.py --preset smoke --out /tmp/check   # wiring only
 python scripts/check_manuscript.py paper/
 ```
