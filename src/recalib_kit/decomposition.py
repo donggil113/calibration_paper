@@ -83,16 +83,31 @@ class Decomposition:
     n_bins_effective: int
 
     @property
-    def free_fraction(self) -> float:
-        """Share of the squared calibration error removable with **no** target labels.
+    def label_shift_share(self) -> float:
+        """Share of the squared calibration error attributable to label shift.
 
-        Reported as the headline "how much of the cliff is free" number.  It is
-        clipped to [0, 1] only for display; the raw components are kept intact
+        This is the part that a **single number** - the target prevalence -
+        would repair.  It is deliberately *not* called a "free" share: whether
+        that number can be obtained without target labels is a separate
+        question, and under cross-national concept shift the answer is no (see
+        :func:`decompose_unlabeled_budget` and
+        :class:`recalib_kit.recalibrate.PrevalenceCorrection`).
+
+        Clipped to [0, 1] for display only; the raw components are kept intact
         so a negative interaction remains visible.
         """
         if self.total <= 0:
             return float("nan")
         return float(np.clip(self.d_label / self.total, 0.0, 1.0))
+
+    @property
+    def free_fraction(self) -> float:
+        """Deprecated alias for :attr:`label_shift_share`.
+
+        Kept so stored analyses remain readable.  The old name asserted that the
+        share was recoverable without labels, which this study found to be false.
+        """
+        return self.label_shift_share
 
     #: Below this L1 ECE there is nothing to gain, so the gain ratio is undefined.
     #: Chosen well under any clinically meaningful miscalibration: a model whose
@@ -104,9 +119,9 @@ class Decomposition:
 
     @property
     def realized_free_gain(self) -> float:
-        """Fraction of L1 ECE actually removed by the unlabeled prior correction.
+        """Fraction of L1 ECE actually removed by the prior correction as applied.
 
-        The operational counterpart of :attr:`free_fraction`: what a hospital
+        The operational counterpart of :attr:`label_shift_share`: what a hospital
         would measure after switching the correction on, rather than what the
         decomposition says is available in principle.  The two agree when the
         interaction term is small and diverge when it is not, which makes the
@@ -126,7 +141,8 @@ class Decomposition:
 
     def to_dict(self) -> dict:
         d = asdict(self)
-        d["free_fraction"] = self.free_fraction
+        d["label_shift_share"] = self.label_shift_share
+        d["free_fraction"] = self.label_shift_share      # deprecated alias
         d["realized_free_gain"] = self.realized_free_gain
         return d
 

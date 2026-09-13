@@ -122,8 +122,10 @@ def decomposition_table(scored: dict, label_names: list[str]) -> pd.DataFrame:
             "prior_ratio": float(y.mean()) / max(pi_s, 1e-9),
             "total": d_or.total, "d_label": d_or.d_label, "d_concept": d_or.d_concept,
             "interaction": d_or.interaction, "residual": d_or.residual,
-            "free_fraction": d_or.free_fraction,
-            "free_fraction_bbse": d_bb.free_fraction,
+            "label_shift_share": d_or.label_shift_share,
+            "label_shift_share_bbse": d_bb.label_shift_share,
+            "free_fraction": d_or.label_shift_share,        # deprecated alias
+            "free_fraction_bbse": d_bb.label_shift_share,   # deprecated alias
             "realized_gain": d_or.realized_free_gain,
             "realized_gain_bbse": d_bb.realized_free_gain,
             "ece_before": d_or.ece_before, "ece_after_prior_fix": d_or.ece_after_prior_fix,
