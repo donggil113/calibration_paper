@@ -1,0 +1,393 @@
+% =====================================================================
+%  Theory: decomposition, identification, sample complexity, conformal
+% =====================================================================
+\section{Theory}
+\label{sec:theory}
+
+\subsection{Setup and notation}
+
+Let $P_s$ and $P_t$ be distributions on $\mathcal{X}\times\{0,1\}$, where
+$\mathcal{X}$ is the space of 12-lead recordings and $Y$ indicates one
+harmonised label (labels are treated one-versus-rest throughout; the multiclass
+statements are given in Appendix~\ref{app:multiclass}).  Write
+$\pi_s=P_s(Y=1)$ and $\pi_t=P_t(Y=1)$.
+
+Let $f:\mathcal{X}\to[0,1]$ be the frozen source-trained scorer, and let
+$\mu_t$ denote the law of $V=f(X)$ under $P_t$.  Define the target
+\emph{calibration curve}
+\[
+  g_t(v)\;=\;\mathbb{E}_{P_t}\!\left[\,Y \mid f(X)=v\,\right],
+\]
+and the calibration errors
+\[
+  \mathrm{CE}_1(f;P_t)=\big\|g_t-\mathrm{id}\big\|_{L^1(\mu_t)},
+  \qquad
+  \mathrm{CE}_2^2(f;P_t)=\big\|g_t-\mathrm{id}\big\|^2_{L^2(\mu_t)} .
+\]
+$\mathrm{CE}_1$ is the population quantity the empirical ECE estimates;
+$\mathrm{CE}_2^2$ is the reliability term of the Brier decomposition.
+
+\begin{assumption}[Source calibration]\label{ass:srccal}
+$f(x)=P_s(Y=1\mid X=x)$ for $P_s$-almost every $x$.
+\end{assumption}
+
+Assumption~\ref{ass:srccal} is not cosmetic and not free: it is enforced in the
+pipeline by temperature scaling on a held-out source split before the model is
+frozen.  Without it, residual source miscalibration would be carried into every
+target site and attributed by the decomposition below to shift.
+
+\begin{definition}[Prior-correction map]\label{def:T}
+For $w_1=\pi_t/\pi_s$ and $w_0=(1-\pi_t)/(1-\pi_s)$, let
+\[
+  T(v)\;=\;T_{\pi_s\to\pi_t}(v)\;=\;\frac{w_1 v}{w_1 v + w_0 (1-v)} .
+\]
+\end{definition}
+
+$T$ depends on the data only through the two priors; in particular it requires
+\emph{no target labels}, since $\pi_t$ is estimable from unlabeled target
+scores (\S\ref{sec:ident}).
+
+\subsection{Theorem 1: decomposition}
+
+\begin{definition}[Shift components]
+$\delta_{\mathrm{lab}} = T-\mathrm{id}$ and
+$\delta_{\mathrm{con}} = g_t-T$, both as elements of $L^2(\mu_t)$.
+\end{definition}
+
+\begin{theorem}[Decomposition]\label{thm:decomp}
+Under Assumption~\ref{ass:srccal},
+\begin{enumerate}[label=(\alph*)]
+\item \textbf{(Exact $L^2$ identity.)}
+\[
+  \mathrm{CE}_2^2(f;P_t)
+  \;=\;
+  \underbrace{\|\delta_{\mathrm{lab}}\|^2_{L^2(\mu_t)}}_{D_{\mathrm{label}}}
+  \;+\;
+  \underbrace{\|\delta_{\mathrm{con}}\|^2_{L^2(\mu_t)}}_{D_{\mathrm{concept}}}
+  \;+\;
+  \underbrace{2\,\langle \delta_{\mathrm{lab}},\delta_{\mathrm{con}}\rangle_{L^2(\mu_t)}}_{R} .
+\]
+\item \textbf{($L^1$ bound and its tightness.)}
+$\mathrm{CE}_1(f;P_t)\le \|\delta_{\mathrm{lab}}\|_{L^1}+\|\delta_{\mathrm{con}}\|_{L^1}$,
+with equality if and only if
+$\operatorname{sign}\delta_{\mathrm{lab}}=\operatorname{sign}\delta_{\mathrm{con}}$
+$\mu_t$-almost everywhere.
+\item \textbf{(The concept term is exactly the failure of label shift on
+$\sigma(f)$.)}  $\delta_{\mathrm{con}}=0$ $\mu_t$-a.e.\ if and only if
+$P_t(Y=1\mid f(X))=T(f(X))$ a.s.  In particular, if
+$P_t(x\mid y)=P_s(x\mid y)$ for $y\in\{0,1\}$ then $\delta_{\mathrm{con}}=0$,
+so that $\mathrm{CE}_2^2 = D_{\mathrm{label}}$ and the whole miscalibration is
+removed by $T$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(a) $g_t-\mathrm{id}=\delta_{\mathrm{lab}}+\delta_{\mathrm{con}}$ by
+construction, and the identity is the expansion of
+$\|a+b\|^2=\|a\|^2+\|b\|^2+2\langle a,b\rangle$ in $L^2(\mu_t)$.
+
+(b) The triangle inequality in $L^1$, with the standard equality condition for
+$|a+b|=|a|+|b|$ pointwise.
+
+(c) The ``only if'' direction is the definition.  For the ``if'': suppose
+$P_t(x\mid y)=P_s(x\mid y)$.  Then for $P_t$-a.e.\ $x$,
+\[
+  \frac{P_t(Y=1\mid X=x)}{P_t(Y=0\mid X=x)}
+  =\frac{\pi_t\,p_s(x\mid 1)}{(1-\pi_t)\,p_s(x\mid 0)}
+  =\frac{w_1}{w_0}\cdot\frac{\pi_s\,p_s(x\mid 1)}{(1-\pi_s)\,p_s(x\mid 0)}
+  =\frac{w_1}{w_0}\cdot\frac{P_s(Y=1\mid X=x)}{P_s(Y=0\mid X=x)} .
+\]
+By Assumption~\ref{ass:srccal} the last ratio is $f(x)/(1-f(x))$, so
+$P_t(Y=1\mid X=x)=T(f(x))$.  Since $T\circ f$ is $\sigma(f)$-measurable,
+\[
+  g_t(v)=\mathbb{E}_{P_t}\big[\,P_t(Y=1\mid X)\,\big|\,f(X)=v\,\big]=T(v),
+\]
+hence $\delta_{\mathrm{con}}=0$.
+\end{proof}
+
+Three consequences are worth stating separately.
+
+\begin{remark}[What the decomposition buys]
+$D_{\mathrm{label}}$ is a functional of $(\pi_s,\pi_t,\mu_t)$ alone.  It is
+therefore removable with \emph{zero} target labels whenever $\pi_t$ is
+identified from unlabeled data.  $D_{\mathrm{concept}}$ is by
+Theorem~\ref{thm:decomp}(c) precisely what survives the best possible prior
+correction, and no unlabeled procedure can estimate it: two targets with the
+same $\mu_t$ can have any $g_t$ whatsoever.
+\end{remark}
+
+\begin{remark}[The interaction term is a warning, not a nuisance]\label{rem:R}
+$R<0$ means the two shifts partially cancel.  A site in that regime looks
+better calibrated than either component alone implies, and applying the free
+correction there can \emph{increase} $\mathrm{CE}_1$.  Because $R$ is estimable
+from the same labeled sample as $D_{\mathrm{concept}}$, the regime is
+detectable rather than merely possible, and \S\ref{sec:results} reports it.
+\end{remark}
+
+\begin{remark}[Why $L^2$ is the primary endpoint]
+Only the $L^2$ split is an identity; the familiar $L^1$ ECE obeys a triangle
+inequality whose slack is itself shift-dependent.  Reporting $L^1$ alone would
+make the components look non-additive for reasons having nothing to do with the
+data.
+\end{remark}
+
+\subsection{Identification of the decomposition}
+\label{sec:ident}
+
+Estimating $D_{\mathrm{label}}$ without target labels requires $\pi_t$.  Let
+$q_s(\cdot\mid y)$ be the law of $f(X)$ under $P_s(\cdot\mid y)$ and $q_t$ the
+law of $f(X)$ under $P_t$ --- the latter observable from unlabeled target data.
+Classical black-box shift estimation (BBSE) assumes \emph{pure} label shift,
+under which
+\begin{equation}\label{eq:bbse}
+  q_t \;=\; \textstyle\sum_y \pi_t(y)\, q_s(\cdot\mid y).
+\end{equation}
+The premise of this paper is that \eqref{eq:bbse} fails across countries.  We
+therefore work with the strictly weaker model
+\begin{equation}\label{eq:relaxed}
+  q_t \;=\; \textstyle\sum_y \pi_t(y)\, q_s(\cdot\mid y) \;+\; \eta,
+  \qquad \eta(\mathcal{V})=0,\quad \eta\in\mathcal{E},
+\end{equation}
+where $\mathcal{E}$ is a declared class of admissible concept-shift
+perturbations.  Write
+$V_0=\operatorname{span}\{q_s(\cdot\mid y)-q_s(\cdot\mid y')\}$ for the space
+of differences reachable by changing the prior, and
+$\mathcal{D}(\mathcal{E})=\{\eta-\eta':\eta,\eta'\in\mathcal{E}\}$.
+
+\begin{theorem}[Identification]\label{thm:ident}
+The pair $(\pi_t,\eta)$ in \eqref{eq:relaxed} is uniquely identified from
+$\big(q_t,\{q_s(\cdot\mid y)\}_y\big)$ if and only if
+\[
+  \{q_s(\cdot\mid y)\}_{y}\ \text{are linearly independent}
+  \qquad\text{and}\qquad
+  V_0\cap\mathcal{D}(\mathcal{E})=\{0\}.
+\]
+\end{theorem}
+
+\begin{proof}
+Two admissible pairs $(\pi,\eta)$ and $(\pi',\eta')$ yield the same $q_t$
+exactly when $\sum_y(\pi-\pi')(y)\,q_s(\cdot\mid y)=\eta'-\eta$.  The left side
+is a generic element of $V_0$, because $\pi,\pi'$ are probability vectors and
+so $\pi-\pi'$ ranges over the sum-zero vectors; the right side is a generic
+element of $\mathcal{D}(\mathcal{E})$.  Non-uniqueness is therefore equivalent
+to the existence of a nonzero common element, i.e.\ to
+$V_0\cap\mathcal{D}(\mathcal{E})\neq\{0\}$, together with the possibility
+$\pi\neq\pi'$ inducing the zero element, which is excluded precisely by linear
+independence.
+\end{proof}
+
+\begin{corollary}[BBSE as the degenerate case]
+$\mathcal{E}=\{0\}$ gives $\mathcal{D}(\mathcal{E})=\{0\}$, so identification
+reduces to linear independence of $\{q_s(\cdot\mid y)\}$ --- the standard BBSE
+condition.
+\end{corollary}
+
+\begin{corollary}[Anchor relaxation]\label{cor:anchor}
+Let $\mathcal{A}$ be a measurable \emph{anchor region} of score space and
+$\mathcal{E}_{\mathcal{A}}=\{\eta:\eta|_{\mathcal{A}}=0\}$, i.e.\ concept shift
+is assumed absent on $\mathcal{A}$ but unrestricted elsewhere.  Then
+$(\pi_t,\eta)$ is identified if and only if the restricted family
+$\{q_s(\cdot\mid y)|_{\mathcal{A}}\}_y$ is linearly independent.  This is a
+\emph{rank condition on source data alone} and is strictly weaker than BBSE's
+requirement that concept shift be absent everywhere.
+\end{corollary}
+
+\begin{corollary}[Norm-bounded shift is not point identified]\label{cor:partial}
+If $\mathcal{E}=\{\eta:\|\eta\|_{1}\le\gamma\}$ for $\gamma>0$, then
+$\mathcal{D}(\mathcal{E})$ contains a ball, so
+$V_0\cap\mathcal{D}(\mathcal{E})\neq\{0\}$ whenever $V_0\neq\{0\}$ and the
+model is \emph{not} point identified.  The sharp identified set for $\pi_t$ is
+\[
+  \Pi(\gamma)=\Big\{\pi_s^\top\! \operatorname{diag}(e_k)\,w \;:\;
+     w\ge 0,\ \pi_s^\top w=1,\ \|q_t-Aw\|_1\le\gamma \Big\},
+\]
+an interval computable by two linear programs.
+\end{corollary}
+
+Corollary~\ref{cor:partial} is why the empirical sections report intervals and
+a sensitivity sweep rather than a single corrected prevalence: $\gamma$ is an
+assumption a deploying site must state, not a quantity it can estimate.  The
+smallest $\gamma$ compatible with the data,
+$\gamma_{\min}=\min_{w\ge0,\,\pi_s^\top w=1}\|q_t-Aw\|_1$, is a lower bound on
+the true $\|\eta\|_1$ and is reported alongside; it is \emph{not} an estimate of
+it, since BBSE chooses $w$ to make that residual small.
+
+\begin{proposition}[An unlabeled test for concept shift]\label{prop:gof}
+Discretise scores into $M>K$ bins, giving $A\in\mathbb{R}^{M\times K}$ with
+$A[m,y]=P_s(\text{bin}=m,\,Y=y)$.  Under $H_0$ of pure label shift, $q_t$ lies
+in the cone $\{Aw:w\ge0\}$, an $M-K$ dimensional restriction.  The pooled
+Pearson statistic
+$T=n_t\min_{w\ge0}\sum_m (\hat q_t[m]-(Aw)[m])^2/(Aw)[m]$
+therefore has a testable null, and $H_0$ can be rejected using \emph{unlabeled
+target data only}.
+\end{proposition}
+
+Proposition~\ref{prop:gof} is the most immediately deployable statement in this
+paper: a hospital can evaluate it on its own unlabeled ECGs, before any chart
+review, and learn whether a free prior correction will suffice or whether it
+must budget for labels.  Two implementation points matter and are documented
+with the software.  First, when $A$ is itself estimated, the variance
+correction is \emph{per bin} --- the source contributes
+$\sum_y w_y^2 A[m,y]/n_s$, weighted by the importance weights and far from
+uniform across the score range.  Second, the asymptotic $\chi^2_{M-K}$
+reference is anti-conservative at realistic sample sizes; we calibrate the null
+by parametric bootstrap, which restores nominal size (measured
+$0.035$--$0.065$ at nominal $0.05$) while retaining power $0.93$ against a
+concept shift small enough to leave AUROC unchanged.
+
+\subsection{Theorem 2: how many labeled target cases a site needs}
+
+Fix a calibration budget $\varepsilon$ and a confidence level $1-\alpha$.  Define
+\emph{calibration coverage} as
+\[
+  \Pr_{S\sim P_t^{\otimes n}}\Big[\;\mathrm{CE}_1(\hat h_S\circ f;P_t)\le\varepsilon\;\Big]\;\ge\;1-\alpha ,
+\]
+the probability being over the draw of the calibration set $S$.  This is
+deliberately not a statement about the expected calibration error: a procedure
+whose average is acceptable but which fails badly at one site in five is not
+deployable, and an expectation hides exactly that.
+
+Let $\Gamma=\mathrm{CE}_1(T\circ f;P_t)$ be the \emph{residual} concept shift
+left after the free prior correction, and let $Z=\operatorname{logit}V$,
+$p=\sigma(Z/\tau)$ under $\mu_t$.
+
+\begin{theorem}[Sample complexity]\label{thm:samplesize}
+\begin{enumerate}[label=(\alph*)]
+\item \textbf{(Sufficiency.)}  For the hybrid estimator --- prior correction
+followed by a one-parameter temperature fitted on $n$ labeled target cases ---
+if $\Gamma<\varepsilon$ then calibration coverage holds as soon as
+\[
+  n\;\ge\;\frac{z_{1-\alpha/2}^2\,L^2}{I\,(\varepsilon-\Gamma)^2},
+  \qquad
+  L=\frac{\mathbb{E}[p(1-p)|Z|]}{\tau^{2}},\quad
+  I=\frac{\mathbb{E}[p(1-p)Z^{2}]}{\tau^{4}} .
+\]
+\item \textbf{(A computable corollary.)}  By Cauchy--Schwarz $L^2/I\le\mathbb{E}[p(1-p)]$, so
+\[
+  n^\star\;\le\;\frac{z_{1-\alpha/2}^2\ \mathbb{E}[p(1-p)]}{(\varepsilon-\Gamma)^2}:
+\]
+\emph{the label bill is set by the model's mean predictive variance on the
+target site, divided by the squared budget.}  Every quantity on the right is
+computable from unlabeled target scores, so a site can price the work before
+doing it.
+\item \textbf{(Necessity, and a threshold.)}  If $\Gamma\ge\varepsilon$, any
+procedure whatsoever requires
+$n\ge(1-2\alpha)/(8\varepsilon^{2})$.
+If $\Gamma<\varepsilon$, no such lower bound exists: $n^\star=0$ and the free
+correction alone meets the budget.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(a) Let $\tau^\star$ minimise the population log-loss over the temperature
+family applied after $T$; $\tau^\star=1$ is feasible, so
+$\mathrm{CE}_1(h_{\tau^\star}\circ f)\le\Gamma$.  For any $\tau$,
+$|\sigma(z/\tau)-\sigma(z/\tau^\star)|\le \sup |\partial_\tau \sigma(z/\tau)|\,
+|\tau-\tau^\star|$ and
+$\partial_\tau\sigma(z/\tau)=-\sigma(1-\sigma)z/\tau^2$, so taking expectations
+gives $\mathrm{CE}_1(h_{\hat\tau})\le\Gamma+L|\hat\tau-\tau^\star|$.  The
+maximum-likelihood $\hat\tau$ satisfies
+$\sqrt{n}(\hat\tau-\tau^\star)\Rightarrow\mathcal{N}(0,I^{-1})$, so
+$\Pr[L|\hat\tau-\tau^\star|\le\varepsilon-\Gamma]\ge1-\alpha$ once
+$\sqrt{nI}\,(\varepsilon-\Gamma)/L\ge z_{1-\alpha/2}$, which is the display.
+
+(b) $\big(\mathbb{E}[p(1-p)|Z|]\big)^2\le\mathbb{E}[p(1-p)]\cdot\mathbb{E}[p(1-p)Z^2]$,
+so $L^2/I\le\mathbb{E}[p(1-p)]$.
+
+(c) Two-point (Le Cam) argument.  Construct $P_0,P_1$ with the \emph{same}
+$\mathcal{X}$-marginal --- so no unlabeled procedure can distinguish them ---
+and conditionals $g_0,g_1$ with $\|g_0-g_1\|_{L^1(\mu_t)}=2\varepsilon$.  Any
+$\hat h$ with $\mathrm{CE}_1\le\varepsilon$ under both would contradict the
+separation, so a procedure failing with probability $<\alpha$ under both yields
+a test of $P_0$ versus $P_1$ with error $<\alpha$, which forces
+$\mathrm{TV}(P_0^{\otimes n},P_1^{\otimes n})\ge1-2\alpha$.  Pinsker and
+tensorisation give
+$\mathrm{TV}(P_0^{\otimes n},P_1^{\otimes n})^2\le \tfrac{n}{2}\mathrm{KL}(P_0\|P_1)\le 2n\varepsilon^2$,
+whence $n\ge(1-2\alpha)^2/(8\varepsilon^2)\ge(1-2\alpha)/(8\varepsilon^2)$ for
+$\alpha\le 1/2$.  For the threshold: both hypotheses must lie in the class of
+admissible concept shifts, a set of $L^1$ radius $\Gamma$ about $T\circ f$; two
+of its points are at most $2\Gamma$ apart, so a separation of $2\varepsilon$ is
+constructible only if $\Gamma\ge\varepsilon$.
+\end{proof}
+
+\begin{remark}[Where the labels go]
+The content of (a) is the position of $\Gamma$ in the denominator.  Plain
+temperature scaling spends its labels undoing a prior shift whose size is
+already known from unlabeled data, and only then, with whatever precision
+remains, on the concept shift.  Warm-starting at $T$ means every label is spent
+on the part that genuinely requires them, so the requirement scales with the
+\emph{residual} shift rather than with the total.  In \S\ref{sec:results} plain
+temperature scaling with 300 labeled cases leaves calibration worse than
+shipping the model unchanged, for the structural reason that a single
+temperature cannot reverse the sign of miscalibration across the score range,
+which a prior shift demands.
+\end{remark}
+
+\subsection{Theorem 3: prediction sets that stay valid}
+
+A probability is one guarantee; a decision is another.  Let $s(x,y)$ be a
+nonconformity score and $C_\alpha(x)=\{y: s(x,y)\le\hat q\}$.  Let
+$P_{s\to t}$ denote the label-shift-corrected source, i.e.\ the law with
+conditionals $P_s(x\mid y)$ and prior $\pi_t$.
+
+\begin{assumption}[$\gamma$-bounded concept shift]\label{ass:gamma}
+$\mathrm{TV}\big(P_t,\,P_{s\to t}\big)\le\gamma$.
+\end{assumption}
+
+\begin{theorem}[Conformal transfer]\label{thm:conformal}
+\begin{enumerate}[label=(\alph*)]
+\item \textbf{(Unlabeled.)}  Weighted split conformal on $m$ \emph{source}
+calibration points with weights $w(y)=\pi_t(y)/\pi_s(y)$, run at level $\alpha$,
+has target coverage $\ge 1-\alpha-\gamma$.  Under pure label shift
+($\gamma=0$) it is exactly valid and requires no target labels.
+\item \textbf{(Hybrid, Theorem 3.)}  Place total mass $\lambda$ on $n$ target
+calibration points and $1-\lambda$ on the reweighted source points, and run at
+the inflated level
+\[
+  \alpha' \;=\; \alpha-(1-\lambda)\gamma .
+\]
+If $\alpha'>0$ then target coverage is $\ge1-\alpha-O\big((n+m)^{-1}\big)$.
+\item \textbf{(Efficiency.)}  The hybrid quantile has variance
+$O\big(1/(\lambda^2 n+(1-\lambda)^2 m_{\mathrm{eff}})\big)$ against $O(1/n)$ for
+target-only conformal, where $m_{\mathrm{eff}}$ is the weighted effective
+source size.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(a) Under pure label shift the reweighted source sample is exchangeable with a
+sample from $P_{s\to t}$, so weighted split conformal
+\citep{tibshirani2019conformal} gives coverage $\ge1-\alpha$ under
+$P_{s\to t}$.  Coverage is the expectation of a $[0,1]$-valued indicator, so it
+changes by at most $\mathrm{TV}(P_t,P_{s\to t})\le\gamma$ when the measure is
+changed to $P_t$.
+
+(b) Realise the weighting as a mixture: each calibration point is drawn from
+$P_t$ with probability $\lambda$ and from $P_{s\to t}$ otherwise, so
+calibration points are i.i.d.\ from $Q_\lambda=\lambda P_t+(1-\lambda)P_{s\to t}$
+and the weighted empirical quantile is the quantile of $Q_\lambda$ up to the
+usual $O((n+m)^{-1})$ finite-sample correction.  Since
+$\mathrm{TV}(P_t,Q_\lambda)\le(1-\lambda)\gamma$, part (a)'s argument gives
+coverage $\ge 1-\alpha'-(1-\lambda)\gamma=1-\alpha$.
+
+(c) The quantile is an order statistic of a weighted empirical distribution;
+its asymptotic variance is inversely proportional to the squared-weight-summed
+sample size, giving the stated rate.
+\end{proof}
+
+\begin{remark}[Reading the trade-off]
+$\lambda=1$ recovers target-only conformal, exactly valid but with a quantile
+estimated from whatever handful of target labels exist; $\lambda=0$ recovers
+the unlabeled reweighted-source procedure, stable but off by $\gamma$.  The
+inflation $\alpha'$ makes the price of leaning on the source explicit and
+payable in advance rather than discovered in deployment.  Note also the hard
+floor no method evades: split conformal needs $n\ge1/\alpha-1$ target labels to
+produce a non-trivial set at all --- nine cases at the 90\% level, ninety-nine
+at 99\%.
+\end{remark}
+
+\begin{remark}[$\gamma$ is an assumption]
+As with Corollary~\ref{cor:partial}, $\gamma$ cannot be estimated from the data
+it is used on.  We therefore report a sweep over $\gamma$ rather than a single
+coverage number, and a deployment dossier should contain that sweep.
+\end{remark}

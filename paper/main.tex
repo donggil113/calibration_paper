@@ -1,0 +1,178 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{enumitem}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{natbib}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue]{hyperref}
+\usepackage{authblk}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{assumption}[theorem]{Assumption}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+% Numbers are generated from the results directory by experiments/make_numbers.py
+% so the manuscript cannot drift from the run that produced it.
+\IfFileExists{numbers.tex}{\input{numbers.tex}}{%
+  \providecommand{\NUM}[1]{\textcolor{red}{[#1: run make\_numbers.py]}}}
+
+\title{\textbf{The Calibration Cliff}\\[2pt]
+\large What breaks when a medical foundation model crosses a border\\
+is not discrimination but calibration}
+
+\author[1]{Dong-Gil Kang}
+\affil[1]{Pusan National University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+Electrocardiographic foundation models are now trained on hundreds of thousands
+of recordings and reported with area-under-the-curve figures that hold up when
+they are evaluated in a second country.  We show that this reassurance is
+measuring the wrong thing.  Across a source-to-target transfer matrix spanning
+six sites and five countries, discrimination is preserved
+(\(\Delta\)AUROC \NUM{auroc\_delta\_range}) while calibration degrades by up to
+\NUM{ece\_ratio\_max} --- a \emph{dissociation}, not a general loss of
+performance.  A model that still ranks patients correctly but whose stated
+probability of atrial fibrillation is wrong by a factor of several is
+precisely the model a clinical threshold, a triage rule, or a regulatory
+submission will misuse.
+
+We give a decomposition of this calibration cliff into a label-shift component,
+correctable from unlabeled target data alone, and a concept-shift component
+that cannot be.  The split is an exact identity in squared calibration error,
+and we characterise necessary and sufficient conditions for it to be
+identified, relaxing the assumption underlying black-box shift estimation to a
+rank condition checkable on source data.  Where no such condition can be
+defended we give sharp partial-identification bounds instead of a false point
+estimate, and an unlabeled goodness-of-fit test that tells a site which regime
+it is in before it reviews a single chart.
+
+We then answer the question deployment actually turns on: how many labeled
+target recordings a new hospital needs.  We prove matching upper and lower
+bounds with an explicit threshold --- a site whose residual concept shift falls
+within its calibration budget needs \emph{zero} labels --- and give a
+sample-size formula whose constant is the model's mean predictive variance on
+the target site, computable before any labeling.  A companion result extends
+conformal prediction sets to remain valid under bounded concept shift.  We
+release \texttt{recalib-kit}, which computes all of this from per-bin
+sufficient statistics, so a site whose data cannot leave its institution can
+still participate.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+% -- the gap ------------------------------------------------------------------
+The standard evidence offered for a medical AI model's readiness to travel is
+external validation: train in one health system, evaluate in another, report
+the area under the receiver operating characteristic curve.  For 12-lead
+electrocardiography this evidence is now abundant and, on its own terms,
+encouraging.
+
+It is also close to uninformative about the thing that determines whether the
+model is safe to switch on.  AUROC is a ranking statistic: it is invariant to
+any monotone transformation of the model's output.  A model whose predicted
+probability of atrial fibrillation is uniformly five times too high has exactly
+the same AUROC as one that is correct.  Every clinical use of such a model that
+is not pure ranking --- a referral threshold, an expected-value calculation
+over treatment options, a risk figure quoted to a patient, a number submitted
+to a regulator --- depends on the calibration that AUROC discards.
+
+% -- the claim ----------------------------------------------------------------
+This paper's claim is that cross-national transfer of ECG foundation models
+produces a specific and reproducible failure pattern: discrimination is
+retained and calibration collapses.  We call it the calibration cliff.  It is
+not a general performance loss and it is not noise; it has structure, and the
+structure is exploitable.
+
+% -- the decomposition --------------------------------------------------------
+The structure is this.  Two things differ between an academic emergency
+department in one country and a screening clinic in another: how often the
+condition occurs, and how it presents in the recording.  The first is a shift
+in the label prior; the second is a shift in the conditional law of the signal
+given the label.  Theorem~\ref{thm:decomp} shows that these contribute
+\emph{separately} to squared calibration error, up to an interaction term that
+is itself estimable, and that the prior-shift component is removable by a map
+depending only on two scalars --- neither of which requires a target label.
+
+% -- why Korea ---------------------------------------------------------------
+Separating the two components empirically requires a target population whose
+prevalence differs from the source by much more than its case mix does.  Every
+publicly available ECG cohort is a hospital population, and hospital-to-hospital
+transfer confounds the two shifts: sites that see more disease also see
+different disease.  An asymptomatic health-screening cohort breaks that
+confounding --- prevalence falls by an order of magnitude while the
+signal-generating process is unchanged --- which is why the Korean screening
+arm is not one more country in a list but the contrast the identification
+argument turns on.
+
+% -- contributions ------------------------------------------------------------
+\paragraph{Contributions.}
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+\item \textbf{The phenomenon.}  A transfer matrix over
+\NUM{n\_sites} sites and \NUM{n\_countries} countries showing preserved
+discrimination against degraded calibration, with a same-country site as the
+negative control that separates a \emph{national} effect from a generic
+site effect.
+\item \textbf{Theorem~\ref{thm:decomp} (decomposition).}  An exact split of
+target calibration error into a label-shift part removable with no labels and a
+concept-shift part that requires them, plus a signed interaction term that
+flags sites where the two shifts cancel and a naive correction backfires.
+\item \textbf{Theorem~\ref{thm:ident} (identification).}  Necessary and
+sufficient conditions for that split to be identified, with black-box shift
+estimation recovered as the degenerate case, an anchor relaxation checkable on
+source data, sharp partial-identification bounds when neither holds, and an
+unlabeled test for which regime a site is in.
+\item \textbf{Theorem~\ref{thm:samplesize} (sample complexity).}  Matching
+bounds on the number of labeled target recordings needed for a stated
+calibration budget, with a threshold below which the answer is zero, and a
+formula whose constant is computable from unlabeled data.
+\item \textbf{Theorem~\ref{thm:conformal} (conformal transfer).}  Prediction
+sets that remain valid under bounded concept shift, at a coverage price stated
+in advance.
+\item \textbf{\texttt{recalib-kit}.}  An implementation that consumes only
+per-bin sufficient statistics, so a cohort that cannot export signals can still
+contribute every number in this paper.
+\end{enumerate}
+
+\input{theory}
+
+\section{Data and methods}
+\label{sec:methods}
+\input{methods}
+
+\section{Results}
+\label{sec:results}
+\input{results}
+
+\section{Discussion}
+\label{sec:discussion}
+\input{discussion}
+
+\bibliographystyle{unsrtnat}
+\bibliography{refs}
+
+\appendix
+\section{Multiclass statements}
+\label{app:multiclass}
+The one-versus-rest statements in \S\ref{sec:theory} extend to $K$ classes by
+replacing $T$ with the vector prior correction
+$T(v)_k = w_k v_k / \sum_j w_j v_j$, $w_k=\pi_t(k)/\pi_s(k)$, and the scalar
+inner products with their $\mathbb{R}^K$ counterparts.  Theorem~\ref{thm:ident}
+is stated for general $K$ already.  In the ECG setting the labels are not
+mutually exclusive, so one-versus-rest is the operative case throughout.
+
+\end{document}

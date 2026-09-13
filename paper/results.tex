@@ -1,0 +1,173 @@
+All numbers below are generated from the run manifest by
+\texttt{experiments/make\_numbers.py}; a quantity the run did not produce
+renders in red rather than silently retaining a stale value.  The reported run
+covers \NUM{nsites} sites, \NUM{ncountries} countries, \NUM{nlabels} labels and
+\NUM{nrecords} scored recordings.
+
+\subsection{Discrimination holds; calibration does not}
+
+Figure~\ref{fig:dissociation} is the paper in one picture.  Mean AUROC on the
+held-out source split is \NUM{aurocsource}; averaged over target sites it is
+\NUM{auroctargetmean}, a change of \NUM{aurocdelta}, with the per-site range
+\NUM{aurocdeltarange}.  On the evidence usually offered for external
+validation, the model travels.
+
+Calibration does not.  Mean ECE rises from \NUM{ecesource} at the source to
+\NUM{ecetargetmean} at the targets, and pooled across labels the worst site
+degrades by \NUM{eceratiomax} (\NUM{eceratiomaxsite}).  Because AUROC is
+invariant to any monotone transformation of the score, these two statements are
+not in tension: the model still ranks patients correctly and its stated
+probabilities are wrong.
+
+\paragraph{The effect is national, not merely inter-site.}
+The Georgia cohort shares a country with the source but not a health system.
+Its calibration ratio is \NUM{controlratio} --- no cliff --- against
+\NUM{ptbxllikeeceratio} for Germany, \NUM{chapmanlikeeceratio} for China and
+\NUM{codelikeeceratio} for Brazil, while its AUROC change
+(\NUM{controlaurocdelta}) is the smallest of any target.  Without this control
+the result would be consistent with a generic site effect; with it, the
+degradation tracks the national boundary.
+
+\begin{figure}[t]\centering
+\includegraphics[width=0.86\textwidth]{figures/fig1_dissociation.pdf}
+\caption{Discrimination and calibration across the transfer matrix, on adjacent
+panels sharing an x-axis.  One point per label; the bar is the site mean; the
+horizontal rule is the source value.  Panels are not a dual-axis plot, because
+the relationship between the two quantities is exactly what is in dispute.}
+\label{fig:dissociation}
+\end{figure}
+
+\subsection{Theorem 1: how much of the cliff is free}
+
+Applying the decomposition at every site and label, and pooling,
+\NUM{freefractionpooled} of the squared calibration error is attributable to
+label shift and therefore removable without a single target label;
+\NUM{conceptfractionpooled} is concept shift and is not.  The interaction term
+contributes \NUM{interactionsharepooled}.  The identity holds to
+\NUM{decompresidualmax} --- machine precision --- confirming the estimator
+implements Theorem~\ref{thm:decomp} rather than approximating it.
+
+The free fraction varies sharply and interpretably by site
+(Figure~\ref{fig:decomposition}).  It is highest at the Korean screening arm
+(\NUM{korealikefree}), where prevalence differs from the source by an order of
+magnitude and case mix hardly at all --- exactly the regime the cohort was
+included to create.  It is lowest at the same-country control
+(\NUM{georgialikefree}), where there is little prevalence shift to correct
+because there is little miscalibration to begin with.
+
+\paragraph{The interaction term is not negligible.}
+\NUM{nnegativeinteraction} of \NUM{ndecomprows} site--label pairs show a
+negative interaction: the two shifts partially cancel, so the site looks better
+calibrated than either component alone implies.  Remark~\ref{rem:R} predicts
+that a naive prior correction can make such a site worse, and
+\S\ref{sec:results-recal} shows it does.
+
+\begin{figure}[t]\centering
+\includegraphics[width=\textwidth]{figures/fig3_decomposition.pdf}
+\caption{Theorem~\ref{thm:decomp} by site.  Grouped rather than stacked bars,
+because the interaction term is signed and a stack cannot show a negative
+segment honestly.}
+\label{fig:decomposition}
+\end{figure}
+
+\subsection{Identification: when the free correction can be trusted}
+
+The free correction depends on an estimate of $\pi_t$ obtained under an
+assumption that these sites violate.  Naive black-box shift estimation is badly
+biased here, and --- the diagnostic point --- the bias does not shrink with more
+source data, because it is bias and not variance.
+
+The unlabeled goodness-of-fit test of Proposition~\ref{prop:gof} separates the
+cases cleanly.  It rejects pure label shift at \NUM{gofrejectfrac} of
+site--label pairs.  Where it does \emph{not} reject
+(\NUM{nbbsetrusted} pairs), the mean relative error of the unlabeled prevalence
+estimate is \NUM{bbseerrtrusted}; where it does (\NUM{nbbseuntrusted} pairs) it
+is \NUM{bbseerruntrusted}.  A site can therefore determine, from its own
+unlabeled recordings and before reviewing a single chart, whether the free
+correction is licensed.
+
+\subsection{Recalibration: what each strategy costs and buys}
+\label{sec:results-recal}
+
+Table~\ref{tab:recal} reports mean ECE across target sites.  Three findings.
+
+\emph{The free correction is not free of risk.}  Applied ungated, prior
+correction takes mean ECE from \NUM{eceidentity} to \NUM{eceprior} --- worse
+than shipping the model unchanged --- precisely at the sites where the
+goodness-of-fit test rejects and the prevalence estimate it relies on is wrong
+by an order of magnitude.
+
+\emph{A single temperature cannot repair a prior shift.}  With
+\NUM{ntempunreachable} of \NUM{ntemprows} site--label pairs never reaching the
+calibration budget at any label count we tested, temperature scaling is not
+merely inefficient here.  The reason is structural: a prior shift moves low and
+high scores in opposite directions, and a one-parameter temperature cannot
+change the sign of the miscalibration across the score range.
+
+\emph{The minimax correction is the safe unlabeled default.}  Replacing the
+gate's binary decision with an optimisation over the identified set gave a
+method that was never worse than shipping unchanged in any regime we tested,
+best under pure label shift, and better than the gate wherever concept shift is
+mild.
+
+\begin{figure}[t]\centering
+\includegraphics[width=\textwidth]{figures/fig4_sample_size.pdf}
+\caption{Calibration error against the number of target patients labelled.
+Zero is plotted explicitly: for a site near pure label shift it is the honest
+answer.}
+\label{fig:samplesize}
+\end{figure}
+
+\subsection{Theorem 2: the label bill}
+
+At a budget of $\varepsilon=\NUM{epsbudget}$ with confidence
+$1-\alpha=\NUM{alphalevel}$, \NUM{nzerolabelsites} of \NUM{nstarrows}
+site--label pairs require \emph{zero} labeled target cases: their residual
+concept shift already falls inside the budget, which is the threshold of
+Theorem~\ref{thm:samplesize}(c).  Among those that do require labels the median
+requirement is \NUM{nstarmedian} adjudicated cases.  \NUM{nstarunreachable}
+pairs do not reach the budget at any tested count, and for those the honest
+advice is a richer recalibration family or a re-examined model, not more
+labels.
+
+The analytic bounds bracket the empirical answer tightly.  At the threshold
+$\Gamma=\varepsilon$ the plug-in sufficient bound and the information-theoretic
+necessary bound agree to within a few per cent, so the constant in
+Theorem~\ref{thm:samplesize}(a) is not merely finite but nearly sharp.
+
+\subsection{Theorem 3: prediction sets}
+
+With $\alpha=\NUM{conformalalpha}$ and \NUM{conformalncal} target calibration
+cases, split conformal on target labels attains mean coverage
+\NUM{covsplit}, valid as its finite-sample guarantee requires, but with a 5th
+percentile across calibration draws of \NUM{covsplitp05} --- the variance a
+small calibration set buys.  Reweighted-source conformal, which uses \emph{no}
+target labels, attains \NUM{covwsrc} with a far tighter 5th percentile of
+\NUM{covwsrcp05}: under pure label shift it is both valid and much more stable,
+and under concept shift it undercovers by approximately the concept-shift
+budget, as Theorem~\ref{thm:conformal}(a) states.  Running the hybrid at the
+inflated level restores validity, reaching \NUM{covhybg}.
+
+\begin{figure}[t]\centering
+\includegraphics[width=\textwidth]{figures/fig6_conformal.pdf}
+\caption{Coverage by procedure and site, averaged over repeated calibration
+draws.  Bars below the rule are invalid.}
+\label{fig:conformal}
+\end{figure}
+
+\subsection{The collapse map}
+
+Figure~\ref{fig:collapse} summarises both halves of the result by site and
+label: how far calibration falls, and how much of that fall a hospital can
+repair without labeling anything.  It is the object we propose as the
+deployment artefact --- not a single external-validation AUROC, but a statement
+per site and per label of how much the probabilities move and how much of that
+movement is free to undo.
+
+\begin{figure}[t]\centering
+\includegraphics[width=\textwidth]{figures/fig5_collapse_map.pdf}
+\caption{Collapse map. Left: ECE relative to the source site. Right: the share
+removable with no target labels. Single-hue ramps, direct-labelled so the
+figure survives greyscale printing.}
+\label{fig:collapse}
+\end{figure}

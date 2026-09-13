@@ -352,3 +352,84 @@ def test_gof_test_separates_trustworthy_from_untrustworthy_priors():
         errs[bool(b["bbse_trustworthy"])].append(rel)
     assert errs[True], "no site was judged trustworthy; the test is too aggressive"
     assert max(errs[True]) < min(errs[False]) if errs[False] else True
+
+
+# ----------------------------------------- unlabeled correction, gated/minimax
+def _unlabeled_arms(pi_t, concept, seed, source):
+    from recalib_kit.metrics import expected_calibration_error as ece
+
+    ss, sy = source
+    rng = np.random.default_rng(seed)
+    xt, yt = sample(40000, pi_t, rng, concept)
+    s = bayes(xt)
+    kw = dict(pi_s=PI_S, source_scores=ss, source_labels=sy)
+    out = {"raw": ece(s, yt)}
+    for m in ("prior_correction", "prior_correction_gated", "prior_correction_minimax"):
+        out[m] = ece(fit_recalibrator(m, s, None, **kw).transform(s), yt)
+    return out
+
+
+def test_gate_closes_under_concept_shift_and_can_open_under_label_shift():
+    """The gate's behaviour, measured with the source operator redrawn.
+
+    Holding one source operator fixed measures a size conditional on that
+    operator's error, and in deployment that is the relevant number - which is
+    why the gate is *not* the recommended default (see MinimaxPriorCorrection).
+    Here we assert the aggregate behaviour the estimator is for: it essentially
+    always closes under real concept shift, and opens for a clear majority of
+    pure-label-shift sites.
+    """
+    opens = {0.0: 0, 1.2: 0}
+    reps = 12
+    for concept in (0.0, 1.2):
+        for k in range(reps):
+            r = np.random.default_rng(70 + k)
+            xs, ys = sample(80000, PI_S, r)        # source redrawn each replicate
+            ss_ = bayes(xs)
+            xt, _ = sample(30000, 0.05, r, concept)
+            g = fit_recalibrator("prior_correction_gated", bayes(xt), None,
+                                 pi_s=PI_S, source_scores=ss_, source_labels=ys)
+            opens[concept] += bool(g.gate_["applied"])
+    assert opens[1.2] == 0, "gate opened under a concept shift it must block"
+    assert opens[0.0] >= reps // 2, "gate too rarely opens under pure label shift"
+
+
+def test_minimax_correction_never_underperforms_shipping_unchanged(source):
+    """The property the logit-midpoint version failed.
+
+    That version took the midpoint of the identified set in logit space.  With
+    an interval touching zero the midpoint was dragged to a near-zero prior and
+    over-corrected, ending worse than leaving the model alone.  Optimising the
+    real loss instead of the logit surrogate removes the failure mode.
+    """
+    for pi_t, concept, seed in [(0.05, 0.0, 60), (0.05, 0.5, 61), (0.05, 1.2, 62),
+                                (0.05, 2.0, 63), (0.30, 0.0, 64)]:
+        r = _unlabeled_arms(pi_t, concept, seed, source)
+        assert r["prior_correction_minimax"] <= r["raw"] + 1e-3, (pi_t, concept, r)
+
+
+def test_minimax_beats_the_gate_when_concept_shift_is_mild(source):
+    r = _unlabeled_arms(0.05, 0.5, 65, source)
+    assert r["prior_correction_minimax"] < r["prior_correction_gated"]
+
+
+def test_identified_set_is_a_point_when_no_correction_is_warranted(source):
+    """A site with no shift must be left alone by every unlabeled arm."""
+    r = _unlabeled_arms(PI_S, 0.0, 66, source)
+    for k in ("prior_correction", "prior_correction_gated", "prior_correction_minimax"):
+        assert abs(r[k] - r["raw"]) < 2e-3, (k, r)
+
+
+def test_dispatcher_wires_unlabeled_estimators_by_capability(source):
+    """Regression: dispatch used a hardcoded name list, so every estimator added
+    after it silently fell through to the labeled path and raised at first use."""
+    from recalib_kit.recalibrate import METHODS
+
+    ss, sy = source
+    rng = np.random.default_rng(67)
+    xt, yt = sample(20000, 0.05, rng, 0.3)
+    s = bayes(xt)
+    for name in METHODS:
+        obj = fit_recalibrator(name, s[:400], yt[:400], pi_s=PI_S,
+                               source_scores=ss, source_labels=sy)
+        assert obj.transform(s[400:]).shape == s[400:].shape, name

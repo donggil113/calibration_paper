@@ -41,7 +41,9 @@ from scipy import stats
 from scipy.special import expit, logit
 
 from .metrics import expected_calibration_error, squared_calibration_error
-from .recalibrate import METHODS, HybridPriorFewShot, PriorCorrection, Recalibrator
+import inspect
+
+from .recalibrate import METHODS, Recalibrator
 
 __all__ = [
     "observed_fisher_temperature",
@@ -290,22 +292,29 @@ def empirical_n_star(
         ))
 
     def make(nn: int, cal_idx: np.ndarray) -> Recalibrator:
-        """Build a recalibrator; unlabeled parts never see calibration labels."""
-        if method in ("prior_correction", "hybrid"):
-            cls = METHODS[method]
-            obj = cls(pi_s=pi_s if pi_s is not None else float(y.mean()))
-            if source_scores is not None and source_labels is not None:
-                obj.fit_unlabeled(v, source_scores, source_labels)
-            elif isinstance(obj, (PriorCorrection, HybridPriorFewShot)):
-                raise ValueError("prior_correction/hybrid need source_scores and source_labels")
-            if method == "prior_correction":
-                return obj
-            if nn == 0:                       # hybrid with no labels degenerates to the free part
-                return obj.prior
-            return obj.fit(v[cal_idx], y[cal_idx])
+        """Build a recalibrator; unlabeled parts never see calibration labels.
+
+        Dispatch is by capability rather than by a name list, so an estimator
+        added to METHODS works here without touching this function.
+        """
+        cls = METHODS[method]
+        try:
+            takes_pi_s = "pi_s" in inspect.signature(cls).parameters
+        except (TypeError, ValueError):
+            takes_pi_s = False
+        obj = cls(pi_s=pi_s if pi_s is not None else float(y.mean())) if takes_pi_s else cls()
+
+        if hasattr(obj, "fit_unlabeled"):
+            if source_scores is None or source_labels is None:
+                raise ValueError(f"{method!r} needs source_scores and source_labels")
+            obj.fit_unlabeled(v, source_scores, source_labels)
+        if obj.n_labels_required == 0:
+            return obj
         if nn == 0:
-            return METHODS["identity"]()
-        return METHODS[method]().fit(v[cal_idx], y[cal_idx])
+            # No labels: fall back to the free half if there is one, else identity.
+            inner = getattr(obj, "prior", None)
+            return inner if inner is not None else METHODS["identity"]()
+        return obj.fit(v[cal_idx], y[cal_idx])
 
     coverage = np.zeros(len(grid))
     ece_med = np.zeros(len(grid))

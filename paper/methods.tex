@@ -1,0 +1,140 @@
+\subsection{Cohorts}
+
+The study is built on seven public 12-lead cohorts spanning five countries plus
+one restricted institutional cohort, selected so that the transfer matrix
+contains the contrasts the theory needs rather than merely many rows.
+
+\begin{table}[t]
+\centering\small
+\begin{tabular}{llrll}
+\toprule
+Cohort & Country & Records & Labels from & Role \\
+\midrule
+MIMIC-IV-ECG      & US & 800{,}035 & cart statements      & source domain \\
+Georgia 12-lead   & US & 10{,}344  & SNOMED-CT            & \textbf{same-country control} \\
+PTB-XL            & DE & 21{,}799  & cardiologist SCP     & target \\
+Chapman-Shaoxing  & CN & 10{,}247  & SNOMED-CT            & target \\
+Ningbo            & CN & 34{,}905  & SNOMED-CT            & target \\
+CPSC-2018         & CN & 6{,}877   & SNOMED-CT            & target \\
+CODE-15\%         & BR & 345{,}779 & validated automatic  & target \\
+EchoNext          & US & $\sim$100{,}000 & \emph{echocardiography} & label-provenance control \\
+Kangbuk Samsung   & KR & ---       & over-read + screening & \textbf{prevalence contrast} \\
+\bottomrule
+\end{tabular}
+\caption{Cohorts. Two are controls rather than additional targets. Georgia
+shares a country with the source but not a health system, so it separates a
+national effect from a generic site effect. EchoNext takes its labels from a
+separate imaging modality, so a cliff that persists there cannot be an artefact
+of how sites read tracings.}
+\label{tab:cohorts}
+\end{table}
+
+\paragraph{Why a Korean screening cohort.}
+Every publicly available ECG cohort is a hospital population, and
+hospital-to-hospital transfer confounds the two shifts the decomposition
+separates: sites that see more disease also see different disease.  An
+asymptomatic health-screening population breaks the confounding --- prevalence
+falls by an order of magnitude while the signal-generating process is
+unchanged.  It is therefore the cohort on which $D_{\mathrm{label}}$ and
+$D_{\mathrm{concept}}$ are most nearly orthogonal, and the one that makes
+Theorem~\ref{thm:decomp} empirically identifiable rather than merely true.
+
+\paragraph{Federated handling.}
+The Korean cohort cannot leave its institution, and it does not need to.  Every
+estimator in this paper depends on the target site only through per-bin counts,
+mean scores and event rates, plus nonconformity order statistics.  The model
+and the source bin edges travel inbound; roughly 1.5\,kB of aggregates travels
+out.  A disclosure audit refuses any payload containing a cell describing fewer
+than ten people.
+
+\subsection{Label harmonisation}
+
+CODE-15 is annotated for six rhythm and conduction abnormalities, which bounds
+any label set shared by every cohort.  We therefore define \textsc{core6}
+(atrial fibrillation/flutter, first-degree AV block, complete right and left
+bundle branch block, sinus bradycardia, sinus tachycardia) for the headline
+transfer matrix, and \textsc{ext12}, adding six morphology and hypertrophy
+labels, for the PhysioNet-family cohorts.
+
+One rule in the harmonisation does disproportionate work: a label a cohort does
+not annotate is recorded as \emph{unobserved}, never as negative.  Treating an
+annotation gap as a confirmed absence manufactures a prevalence difference out
+of nothing, and that artefact would land squarely in the label-shift component
+this study exists to measure.  Every label matrix therefore carries an
+observation mask, and masked entries contribute to neither training nor
+evaluation.
+
+\subsection{Preprocessing}
+
+Identical for every cohort and applied in a fixed order: strip the zero padding
+CODE-15 ships, band-pass 0.5--47\,Hz with a zero-phase filter, resample to
+250\,Hz, centre-crop to 10\,s, and scale each lead by its median and
+interquartile range.  Filtering precedes resampling so the anti-alias behaviour
+is set by the declared low-pass rather than by the resampler, making the result
+independent of a cohort's native rate.
+
+A mains notch is deliberately \emph{not} applied.  Mains is 50\,Hz in Germany
+and China and 60\,Hz in the Americas and Korea, so a per-cohort notch would
+remove a genuine site signature, improving apparent transfer while changing
+nothing a deployed model would face.
+
+\subsection{Model and adaptation protocol}
+
+The encoder is a 1-D residual network over the twelve leads with global average
+pooling, sized so that every experiment runs on CPU.  The protocol is the
+foundation-model one:
+
+\begin{enumerate}[leftmargin=*,itemsep=1pt]
+\item \textbf{Pretrain} by masked-patch reconstruction on the pooled
+\emph{unlabeled} union of all sites.  Contrastive pretraining was rejected for
+a reason specific to this study: the standard ECG augmentation set makes the
+encoder invariant to exactly the acquisition differences that distinguish these
+sites, which would erase the effect by construction.
+\item \textbf{Probe} on source labels only, with the encoder frozen.  The head
+is strictly linear, so a transfer failure cannot be attributed to head
+capacity.  It is fitted to convergence rather than by a few gradient steps ---
+with calibration as the endpoint, an undertrained head is miscalibrated for
+reasons unrelated to shift.
+\item \textbf{Calibrate} by temperature scaling on a held-out source split,
+establishing Assumption~\ref{ass:srccal}.
+\item \textbf{Freeze} and score every site.  No target labels, no target
+statistics and no per-site renormalisation touch the model again; the frozen
+backbone is held in evaluation mode so that even batch-normalisation running
+statistics cannot adapt.
+\end{enumerate}
+
+Splits are at the patient level throughout, with a leakage assertion executed
+rather than assumed.  Record-level splitting inflates discrimination, and this
+paper's headline is that discrimination is \emph{preserved}: leakage would
+manufacture its own result.
+
+\subsection{Simulation}
+
+The theorems are statements about estimators --- that a decomposition is
+identified, that a label count suffices, that a coverage guarantee survives a
+bounded perturbation --- and claims of that kind cannot be checked on real
+cohorts, where the ground-truth split between label and concept shift is
+precisely what is unknown.  We therefore also run the entire pipeline on a
+generator with known $(\pi_t,\eta)$.
+
+Beats are synthesised as a three-dimensional cardiac dipole and projected onto
+the twelve leads through an inverse-Dower matrix, so a conduction abnormality is
+introduced once and appears with physiologically consistent polarity across all
+leads; the derived limb leads are computed from I and II as a real recording
+cart does, so Einthoven's and Goldberger's relations hold exactly.  Prevalence,
+morphology and acquisition are controlled independently, matching the three
+things that actually differ between these cohorts.  Prevalences are set near
+published figures for the corresponding real cohorts, including an order-of-
+magnitude lower screening arm.
+
+\subsection{Estimation}
+
+Calibration is reported as $L^1$ ECE with 15 equal-mass bins and as the
+debiased $L^2$ estimator, which subtracts the per-bin binomial variance.  The
+debiased value is not clipped at zero: clipping reintroduces positive bias
+exactly in the regime where one would claim a model is well calibrated.
+Equal-mass rather than equal-width bins are used because the score distribution
+piles up near zero at a screening site, which is where equal-width binning
+fails.  Intervals are stratified bootstraps, stratified on the label so that
+replicates cannot lose all the positives.  Any per-label estimate resting on
+fewer than 25 positive cases is reported but flagged.

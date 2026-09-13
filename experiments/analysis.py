@@ -143,7 +143,10 @@ def recalibration_table(
     scored: dict,
     label_names: list[str],
     n_cal_grid: tuple[int, ...] = (0, 25, 50, 100, 200, 400, 800),
-    methods: tuple[str, ...] = ("identity", "prior_correction", "temperature", "platt", "isotonic", "hybrid"),
+    methods: tuple[str, ...] = (
+        "identity", "prior_correction", "prior_correction_gated", "prior_correction_minimax",
+        "temperature", "platt", "isotonic", "hybrid", "hybrid_minimax",
+    ),
     n_repeats: int = 20,
     seed: int = 0,
 ) -> pd.DataFrame:
@@ -174,7 +177,7 @@ def recalibration_table(
                     if len(ev) < 100:
                         continue
                     try:
-                        if n_cal == 0 and method not in ("identity", "prior_correction"):
+                        if n_cal == 0 and not unlabeled:
                             rec = fit_recalibrator("identity", s[ev][:1], y[ev][:1])
                         else:
                             rec = fit_recalibrator(
@@ -202,7 +205,9 @@ def nstar_table(
     label_names: list[str],
     eps: float = 0.02,
     alpha: float = 0.1,
-    methods: tuple[str, ...] = ("prior_correction", "temperature", "hybrid"),
+    methods: tuple[str, ...] = (
+        "prior_correction", "prior_correction_minimax", "temperature", "hybrid", "hybrid_minimax",
+    ),
     n_repeats: int = 60,
     seed: int = 0,
 ) -> pd.DataFrame:

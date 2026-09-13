@@ -1,0 +1,69 @@
+\paragraph{What this changes about external validation.}
+The standard package of evidence --- an AUROC obtained in a second country ---
+is not wrong, it is answering a different question from the one deployment
+poses.  Our transfer matrix reproduces the reassuring AUROC and shows
+calibration failing behind it.  Any use of a model that is not pure ranking
+depends on the half that goes unreported.  We propose that a deployment dossier
+state, per site and per label, the calibration ratio, the decomposition, and the
+label count required to close the gap --- all of which are computable with the
+released toolbox, and two of which need no target labels at all.
+
+\paragraph{What a hospital should actually do.}
+The workflow the results support has three steps and a decision point.  Run the
+unlabeled goodness-of-fit test on your own recordings.  If it does not reject,
+the prevalence correction is licensed and free.  If it does, the shift at your
+site is not reducible to prevalence: use the minimax correction, which damps
+itself by how little the data pins the prevalence, and budget for labels using
+the plug-in formula, whose only unknown is your model's mean predictive
+variance on your own unlabeled data.  The number of labels this implies is in
+the hundreds, not the tens of thousands a retraining effort would need.
+
+\paragraph{Implications for LMIC deployment.}
+The asymmetry here is favourable and worth stating plainly.  The component of
+the cliff that is free to fix is the prevalence component, and prevalence is
+exactly what differs most between a tertiary centre in a high-income country
+and a primary-care setting elsewhere.  A site with little capacity for chart
+review is disproportionately likely to be in the regime where it needs none.
+The corollary is equally plain: that site still needs the unlabeled test, since
+without it the free correction is a coin flip that can make matters worse.
+
+\paragraph{Limitations.}
+\emph{Label provenance.}  Most of these cohorts take their labels from an
+interpretation of the ECG, so a cross-country difference in labels can always
+be partly a difference in reading practice rather than in patients.  The
+EchoNext arm, whose labels come from echocardiography, is the control for this,
+and it is the one arm we regard as decisive on the point.
+
+\emph{The Korean cohort.}  Its inclusion requires institutional approval and a
+data transfer agreement.  The federated protocol removes the technical
+obstacle, not the governance one.
+
+\emph{$\gamma$ is an assumption.}  Both the partial-identification interval and
+the conformal inflation depend on a concept-shift budget that cannot be
+estimated from the data it is used on.  We report sweeps rather than single
+numbers, and $\gamma_{\min}$ as the data's own floor; a reader who disbelieves
+our $\gamma$ can read their own off the sweep.
+
+\emph{Conditional versus unconditional test size.}  The unlabeled test is
+calibrated by parametric bootstrap and has close to nominal unconditional size.
+In deployment, though, every site uses \emph{one} source operator estimated by
+whoever shipped the model, and conditional on a particular such operator the
+size can be materially higher.  This is why we recommend the minimax
+correction, which involves no binary decision, over the gate.  A vendor
+shipping a model for this workflow should estimate the source operator on as
+much data as possible and report its conditioning.
+
+\emph{Simulation versus cohorts.}  The theorems are validated on a generator
+with known ground truth because the split they concern is unobservable in real
+data.  The empirical claims about transfer are separate and belong to the
+cohorts; we have not used the simulator to support them, and the two are never
+pooled in one table.
+
+\paragraph{What would falsify this.}
+A site with a large prevalence shift, a non-rejecting goodness-of-fit test, and
+a free correction that fails to recover most of its calibration error would
+contradict Theorem~\ref{thm:decomp}(c) as applied here.  A site where the
+measured label requirement materially exceeds the plug-in bound at its measured
+$\Gamma$ would contradict Theorem~\ref{thm:samplesize}(a).  Both are checkable
+with the released code on any cohort a reader has access to, which is the point
+of releasing it.
