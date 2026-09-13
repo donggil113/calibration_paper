@@ -17,7 +17,7 @@ it.
 
 ---
 
-## The claim, in three parts
+## The claim, in four parts
 
 1. **The phenomenon.** Across a source-to-target transfer matrix spanning five
    countries, discrimination is preserved while calibration degrades severely —
@@ -35,11 +35,22 @@ it.
    label-shift assumption, and cross-national shift violates it in the one
    direction no unlabeled procedure can detect. Applied with an unlabeled
    prevalence estimate the correction was **worse than shipping unchanged at
-   every site we tested**. Measuring the prevalence on a few dozen adjudicated
-   cases recovers essentially the whole benefit, because the correction needs
-   one scalar rather than a recalibration map.
+   every site we tested** — pooled ECE 0.119 against 0.040 for doing nothing.
+   Gating it on the unlabeled test reduced the damage without removing it.
 
-3. **The price.** Upper and lower bounds on the number of labeled target
+3. **Recalibration is a decision, not a default.** Averaged over sites, a fitted
+   isotonic map beats shipping unchanged at every label budget. Broken out by
+   site and label it is *worse* in a majority of pairs at small budgets: the
+   average is carried by the single worst-calibrated site, while at sites that
+   were already acceptable the map adds more estimation noise than it removes
+   bias. At the one site with no cliff, recalibration made calibration
+   measurably worse.
+
+   So spend the labels on the decision as well as the fit. Cross-validated
+   selection — with "do nothing" always among the candidates — acts where there
+   is a cliff and leaves the model alone where there is not.
+
+4. **The price.** Upper and lower bounds on the number of labeled target
    recordings a new hospital needs. They are complementary rather than a
    bracket — the sufficient bound applies below a threshold in the residual
    shift, the necessary bound above it — and they match in *rate*, both scaling

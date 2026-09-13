@@ -63,10 +63,16 @@ direction no unlabeled procedure can detect --- along the label-shift cone,
 where we prove the prevalence is unidentified and where a goodness-of-fit test
 is structurally blind.  Applied with an unlabeled prevalence estimate, the
 correction made calibration substantially \emph{worse} than shipping the model
-unchanged at every site we tested.  What it costs instead is small and bounded:
-because the correction needs one scalar rather than a whole recalibration map,
-measuring the prevalence on a few dozen adjudicated target cases recovers
-essentially the entire available benefit.
+unchanged at every site we tested.  A second finding follows from the same tables and points the same way.  Averaged
+over sites a fitted recalibration map beats shipping unchanged at every label
+budget; broken out by site and label it is \emph{worse} in a majority of pairs,
+the average carried by the single worst-calibrated site.  At sites already
+acceptably calibrated a fitted map adds more estimation noise than it removes
+bias, and at our same-country control it makes calibration measurably worse.
+Recalibration is therefore a decision rather than a default, and a small
+labelled sample is enough to make it: cross-validated selection with ``do
+nothing'' among the candidates acts where there is a cliff and leaves the model
+alone where there is not.
 
 We then answer the question deployment actually turns on: how many labeled
 target recordings a new hospital needs.  We prove complementary upper and lower
@@ -155,6 +161,10 @@ computable from unlabeled data.
 \item \textbf{Theorem~\ref{thm:conformal} (conformal transfer).}  Prediction
 sets that remain valid under bounded concept shift, at a coverage price stated
 in advance.
+\item \textbf{A decision procedure, not a method.}  Cross-validated selection
+over a candidate set that includes the identity, which recalibrates where there
+is a cliff and declines where there is not --- and which declines to compare at
+all when the calibration sample is too small to support an honest comparison.
 \item \textbf{\texttt{recalib-kit}.}  An implementation that consumes only
 per-bin sufficient statistics, so a cohort that cannot export signals can still
 contribute every number in this paper.
