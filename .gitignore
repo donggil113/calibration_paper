@@ -9,6 +9,7 @@ dist/
 # data + artifacts (never commit PHI or bulk signals)
 data/
 !data/README.md
+!data/README.md
 results/**/*.npz
 results/**/*.npy
 results/**/*.pt

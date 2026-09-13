@@ -394,11 +394,13 @@ class GatedPriorCorrection(Recalibrator):
     name = "prior_correction_gated"
     n_labels_required = 0
 
-    def __init__(self, pi_s: float = 0.5, level: float = 0.05, n_bins: int = 15, n_mc: int = 300):
+    def __init__(self, pi_s: float = 0.5, level: float = 0.05, n_bins: int = 15,
+                 n_mc: int = 300, max_prior_ratio: float = 20.0):
         self.pi_s = pi_s
         self.level = level
         self.n_bins = n_bins
         self.n_mc = n_mc
+        self.max_prior_ratio = max_prior_ratio
         self.pi_t: float | None = None
         self.gate_: dict = {"applied": False, "reason": "not fitted"}
 
@@ -423,15 +425,26 @@ class GatedPriorCorrection(Recalibrator):
         degenerate = pi_t <= 1e-9 or pi_t >= 1 - 1e-9
         rejected = gof["p_value"] < self.level
 
+        ratio = pi_t / max(self.pi_s, 1e-12)
+        implausible = ratio > self.max_prior_ratio or ratio < 1.0 / self.max_prior_ratio
+
         if degenerate:
             reason = "prior estimate pinned at a simplex boundary: the solve failed"
+        elif implausible:
+            reason = (
+                f"implied prevalence change of {ratio:.1f}x exceeds the plausibility "
+                f"bound; the goodness-of-fit test cannot see shift along the "
+                f"label-shift cone, so this check carries the case"
+            )
         elif rejected:
             reason = f"label shift rejected on unlabeled data (p={gof['p_value']:.3g})"
         else:
             reason = f"label shift not rejected (p={gof['p_value']:.3g}); correction applied"
 
         self.gate_ = {
-            "applied": bool(not degenerate and not rejected),
+            "applied": bool(not degenerate and not implausible and not rejected),
+            "prior_ratio": float(ratio),
+            "implausible": bool(implausible),
             "reason": reason,
             "p_value": gof["p_value"],
             "pi_t_bbse": pi_t,

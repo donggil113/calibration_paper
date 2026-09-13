@@ -90,13 +90,22 @@ def build(res: Path) -> dict[str, str]:
             m["gofrejectfrac"] = _fmt(100 * dd.concept_shift_detected.mean(), "{:.0f}") + r"\%"
         if "bbse_trustworthy" in dd:
             ok, bad = dd[dd.bbse_trustworthy], dd[~dd.bbse_trustworthy]
-            relerr = lambda g: (g.pi_t_bbse - g.pi_t_true).abs().div(g.pi_t_true.clip(lower=1e-9)).mean()
+            # Median absolute log ratio, not mean relative error: the latter is
+            # dominated by a single pair whose concept shift lay along the
+            # label-shift cone, where the test is structurally blind, and quoting
+            # it would either overstate the test or bury the real limitation.
+            def logerr(g):
+                return float(np.median(np.abs(np.log(
+                    g.pi_t_bbse.clip(lower=1e-6) / g.pi_t_true.clip(lower=1e-9)))))
+
             if len(ok):
-                m["bbseerrtrusted"] = _fmt(relerr(ok), "{:.2f}")
+                m["bbselogerrtrusted"] = _fmt(logerr(ok), "{:.2f}")
                 m["nbbsetrusted"] = str(len(ok))
             if len(bad):
-                m["bbseerruntrusted"] = _fmt(relerr(bad), "{:.2f}")
+                m["bbselogerruntrusted"] = _fmt(logerr(bad), "{:.2f}")
                 m["nbbseuntrusted"] = str(len(bad))
+            if "prior_ratio_implausible" in dd:
+                m["nimplausibleprior"] = str(int(dd.prior_ratio_implausible.sum()))
 
     # --- Theorem 2 ----------------------------------------------------------
     if len(nstar):

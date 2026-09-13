@@ -90,14 +90,29 @@ assumption that these sites violate.  Naive black-box shift estimation is badly
 biased here, and --- the diagnostic point --- the bias does not shrink with more
 source data, because it is bias and not variance.
 
-The unlabeled goodness-of-fit test of Proposition~\ref{prop:gof} separates the
-cases cleanly.  It rejects pure label shift at \NUM{gofrejectfrac} of
-site--label pairs.  Where it does \emph{not} reject
-(\NUM{nbbsetrusted} pairs), the mean relative error of the unlabeled prevalence
-estimate is \NUM{bbseerrtrusted}; where it does (\NUM{nbbseuntrusted} pairs) it
-is \NUM{bbseerruntrusted}.  A site can therefore determine, from its own
-unlabeled recordings and before reviewing a single chart, whether the free
-correction is licensed.
+The unlabeled goodness-of-fit test of Proposition~\ref{prop:gof} rejects pure
+label shift at \NUM{gofrejectfrac} of site--label pairs, and on a scale-free
+measure of prior error it does separate the cases: the median absolute
+log prevalence ratio is \NUM{bbselogerrtrusted} where the test does not reject
+against \NUM{bbselogerruntrusted} where it does.
+
+It is important to be precise about what that does and does not license, because
+the separation is not clean on every measure and the reason is structural rather
+than statistical.  As Remark~\ref{rem:gofblind} sets out, the test sees only
+concept shift that moves the target histogram off the label-shift cone.  One
+site--label pair in this matrix returned an unlabeled prevalence estimate of
+0.85 against a true prevalence of 0.02 while the test returned $p = 0.23$: its
+concept shift lay almost entirely along the cone, where Theorem~\ref{thm:ident}
+says no unlabeled procedure can see it.  A single such failure is enough to
+dominate a mean relative error, which is why we report the log-scale summary and
+state the limitation rather than the headline.
+
+The operational conclusion is the one the rest of this section follows.  A site
+can use its own unlabeled recordings to rule the free correction \emph{out} ---
+a rejection is informative and actionable.  It cannot use them to rule it
+definitively \emph{in}.  That asymmetry is why the recommended unlabeled
+estimator is the minimax correction, which bounds the damage under an assumed
+budget, rather than a gate that acts on a verdict which can be silently wrong.
 
 \subsection{Recalibration: what each strategy costs and buys}
 \label{sec:results-recal}

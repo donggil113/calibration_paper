@@ -49,6 +49,7 @@ the decomposition, so :class:`Decomposition` carries it explicitly.
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
+from typing import ClassVar
 
 import numpy as np
 
@@ -95,8 +96,11 @@ class Decomposition:
 
     #: Below this L1 ECE there is nothing to gain, so the gain ratio is undefined.
     #: Chosen well under any clinically meaningful miscalibration: a model whose
-    #: ECE is 0.002 is calibrated for every practical purpose.
-    GAIN_FLOOR: float = 0.005
+    #: ECE is 0.002 is calibrated for every practical purpose.  ClassVar, not a
+    #: field: a dataclass turns a bare annotation into a per-result datum, and
+    #: this threshold then appeared as a constructor argument and as a column in
+    #: every exported table.
+    GAIN_FLOOR: ClassVar[float] = 0.005
 
     @property
     def realized_free_gain(self) -> float:
@@ -279,6 +283,7 @@ def decompose_unlabeled_budget(
     source_labels: np.ndarray,
     n_bins: int = 15,
     scheme: str = "equal_mass",
+    max_prior_ratio: float = 20.0,
 ) -> dict:
     r"""The part of the decomposition computable with **zero** target labels.
 
@@ -316,12 +321,28 @@ def decompose_unlabeled_budget(
     # A prior estimate pinned at a simplex boundary is a failed solve, not a
     # measurement: nnls has hit w=0 and the "estimate" carries no information.
     degenerate = bool(pi_t_hat <= 1e-9 or pi_t_hat >= 1 - 1e-9)
+
+    # Passing the goodness-of-fit test is necessary but NOT sufficient.  The test
+    # can only see concept shift that moves the target histogram *off* the
+    # label-shift cone; shift that moves it *along* the cone is invisible to it,
+    # and by Theorem 1 is genuinely unidentified - no unlabeled procedure can do
+    # better.  Empirically this is not a corner case: at one site the estimator
+    # returned a prevalence of 0.85 against a truth of 0.02 with a p-value of
+    # 0.23.  A crude plausibility bound catches that class of failure where the
+    # test cannot, and it is stated as what it is - a sanity check on the
+    # magnitude of the implied prior change, not an inference.
+    ratio = pi_t_hat / max(pi_s, 1e-12)
+    implausible = bool(ratio > max_prior_ratio or ratio < 1.0 / max_prior_ratio)
+
     return {
         "pi_s": float(pi_s),
         "pi_t_bbse": float(pi_t_hat),
+        "prior_ratio_implausible": implausible,
         "bbse_degenerate": degenerate,
         "bbse_sigma_min": float(est.diagnostics.get("sigma_min", float("nan"))),
-        "bbse_trustworthy": bool(not degenerate and not gof["reject_label_shift"]),
+        "bbse_trustworthy": bool(
+            not degenerate and not implausible and not gof["reject_label_shift"]
+        ),
         "prior_ratio": float(pi_t_hat / max(pi_s, 1e-12)),
         "d_label": float(np.sum(w * d_lab**2)),
         "d_label_l1": float(np.sum(w * np.abs(d_lab))),

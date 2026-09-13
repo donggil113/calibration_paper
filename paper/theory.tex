@@ -222,8 +222,29 @@ therefore has a testable null, and $H_0$ can be rejected using \emph{unlabeled
 target data only}.
 \end{proposition}
 
-Proposition~\ref{prop:gof} is the most immediately deployable statement in this
-paper: a hospital can evaluate it on its own unlabeled ECGs, before any chart
+\begin{remark}[What the test can and cannot see]\label{rem:gofblind}
+The statistic measures the distance from $\hat q_t$ to the cone
+$\{Aw : w \ge 0\}$, so it detects concept shift that moves the target
+histogram \emph{off} that cone and is blind to shift that moves it
+\emph{along} it.  This is not a deficiency of the statistic; by
+Theorem~\ref{thm:ident} the along-cone component is exactly the part that is
+not identified, and no unlabeled procedure can recover it.  Passing the test is
+therefore necessary evidence, not sufficient.
+
+The gap is not hypothetical.  In our transfer matrix one site--label pair
+returned an unlabeled prevalence estimate of $0.85$ against a true prevalence of
+$0.02$ with a $p$-value of $0.23$: the concept shift there happened to be almost
+entirely along the cone, and was invisible.  A blunt plausibility bound on the
+implied change in prevalence catches that class of failure where the test
+structurally cannot, and the released software applies one --- labelled as the
+sanity check it is, not as an inference.  It is also why we recommend the
+minimax correction of \S\ref{sec:results-recal} over a gate that trusts the
+test's verdict: a procedure that bounds the damage is worth more than one that
+can be silently fooled.
+\end{remark}
+
+Proposition~\ref{prop:gof} is nonetheless the most immediately deployable
+statement in this paper: a hospital can evaluate it on its own unlabeled ECGs, before any chart
 review, and learn whether a free prior correction will suffice or whether it
 must budget for labels.  Two implementation points matter and are documented
 with the software.  First, when $A$ is itself estimated, the variance

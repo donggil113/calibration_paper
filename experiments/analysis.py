@@ -132,6 +132,7 @@ def decomposition_table(scored: dict, label_names: list[str]) -> pd.DataFrame:
             "gamma_min": budget["gamma_min"], "gof_p": budget["gof_p_value"],
             "concept_shift_detected": budget["concept_shift_detected"],
             "bbse_degenerate": budget["bbse_degenerate"],
+            "prior_ratio_implausible": budget["prior_ratio_implausible"],
             "bbse_sigma_min": budget["bbse_sigma_min"],
             "bbse_trustworthy": budget["bbse_trustworthy"],
             "reliable_estimate": bool(y.sum() >= MIN_POSITIVES),

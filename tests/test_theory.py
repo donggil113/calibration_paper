@@ -337,32 +337,55 @@ def test_degenerate_prior_estimates_are_flagged():
     assert budget["bbse_trustworthy"] is False
 
 
-def test_gof_test_separates_trustworthy_from_untrustworthy_priors():
-    """The deployable claim: an unlabeled test tells a site when to believe BBSE."""
+def test_rejection_is_informative_even_though_acceptance_is_not(source):
+    """The asymmetry the paper actually claims.
+
+    A rejection reliably marks a site whose prior estimate is bad.  Acceptance
+    does *not* guarantee a good one: the test measures distance from the
+    label-shift cone, so concept shift that moves the target histogram along the
+    cone is invisible to it - and by Theorem 1 that component is unidentified
+    for any unlabeled procedure.  An earlier version of this test asserted clean
+    separation in both directions; the transfer matrix refuted it, with one pair
+    returning a prevalence estimate of 0.85 against a truth of 0.02 at p=0.23.
+    """
     from recalib_kit.decomposition import decompose_unlabeled_budget
 
+    ss, sy = source
     rng = np.random.default_rng(42)
-    xs, ys = sample(200000, PI_S, rng)
-    ss = bayes(xs)
-    errs = {True: [], False: []}
-    for concept in (0.0, 0.0, 0.6, 1.0):
+    rejected_errs = []
+    for concept in (0.8, 1.2, 1.6):
         xt, yt = sample(40000, 0.05, rng, concept)
-        b = decompose_unlabeled_budget(bayes(xt), PI_S, ss, ys)
-        rel = abs(b["pi_t_bbse"] - float(yt.mean())) / float(yt.mean())
-        errs[bool(b["bbse_trustworthy"])].append(rel)
-    assert errs[True], "no site was judged trustworthy; the test is too aggressive"
-    assert max(errs[True]) < min(errs[False]) if errs[False] else True
+        b = decompose_unlabeled_budget(bayes(xt), PI_S, ss, sy)
+        if b["concept_shift_detected"]:
+            rejected_errs.append(abs(np.log(max(b["pi_t_bbse"], 1e-6) / float(yt.mean()))))
+    assert rejected_errs, "the test never fired on a clear concept shift"
+    assert max(rejected_errs) > 0.2, "a rejection should mark a materially wrong prior"
+
+
+def test_plausibility_bound_catches_what_the_test_cannot(source):
+    """The blunt guard that covers the structural blind spot."""
+    from recalib_kit.decomposition import decompose_unlabeled_budget
+
+    ss, sy = source
+    rng = np.random.default_rng(43)
+    # A target whose scores sit almost entirely at the top of the range implies
+    # an absurd prevalence, which the cone-distance statistic need not reject.
+    xt, _ = sample(20000, 0.95, rng)
+    b = decompose_unlabeled_budget(bayes(xt), PI_S, ss, sy, max_prior_ratio=3.0)
+    assert b["prior_ratio_implausible"] is True
+    assert b["bbse_trustworthy"] is False
 
 
 # ----------------------------------------- unlabeled correction, gated/minimax
 def _unlabeled_arms(pi_t, concept, seed, source):
+    """ECE of each unlabeled arm on one simulated target site."""
     from recalib_kit.metrics import expected_calibration_error as ece
 
     ss, sy = source
     rng = np.random.default_rng(seed)
     xt, yt = sample(40000, pi_t, rng, concept)
     s = bayes(xt)
-    kw = dict(pi_s=PI_S, source_scores=ss, source_labels=sy)
+    kw = dict(pi_s=PI_S, source_scores=ss, source_labels=sy, target_unlabeled=s)
     out = {"raw": ece(s, yt)}
     for m in ("prior_correction", "prior_correction_gated", "prior_correction_minimax"):
         out[m] = ece(fit_recalibrator(m, s, None, **kw).transform(s), yt)
