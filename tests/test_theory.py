@@ -598,3 +598,15 @@ def test_cv_selection_never_badly_underperforms_shipping_unchanged():
         raw = ece(s[ev], y[ev])
         cv = ece(fit_recalibrator("cv_select", s[cal], y[cal]).transform(s[ev]), y[ev])
         assert cv <= raw * 1.5 + 5e-3, (shift, raw, cv)
+
+
+def test_cv_selection_refuses_to_compare_on_a_single_fold():
+    """Below two usable folds the comparison would be in-sample, and whichever
+    candidate overfits hardest wins.  The estimator says so instead."""
+    s, y = _cliff_site(0.05, 8.0, seed=120)
+    rec = fit_recalibrator("cv_select", s[:8], y[:8])
+    assert rec.evaluated_ is False
+    assert rec.selected_ == "identity"
+
+    rec = fit_recalibrator("cv_select", s[:60], y[:60])
+    assert rec.evaluated_ is True

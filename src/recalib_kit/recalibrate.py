@@ -734,6 +734,7 @@ class SelectByCrossValidation(Recalibrator):
         one_se: bool = True,
         seed: int = 0,
         pi_s: float = 0.5,
+        min_fold: int = 5,
     ):
         self.candidates = tuple(candidates)
         self.n_folds = n_folds
@@ -741,7 +742,9 @@ class SelectByCrossValidation(Recalibrator):
         self.one_se = one_se
         self.seed = seed
         self.pi_s = pi_s
+        self.min_fold = min_fold
         self.selected_: str | None = None
+        self.evaluated_: bool = False
         self.model_: Recalibrator | None = None
         self.scores_: dict[str, float] = {}
 
@@ -762,13 +765,29 @@ class SelectByCrossValidation(Recalibrator):
         y = np.asarray(labels, float).ravel()
         n = s.size
         rng = np.random.default_rng(self.seed)
-        folds = np.array_split(rng.permutation(n), min(self.n_folds, max(n, 1)))
+        # Size the fold count so every fold can actually be scored.  Splitting a
+        # small calibration set into the nominal number of folds leaves each too
+        # small to evaluate, every candidate scores as infinite, and the
+        # estimator returns the identity - which is the right action but for the
+        # wrong reason, and indistinguishable in the output from having chosen it
+        # on evidence.  `evaluated_` records which of the two happened.
+        k = int(min(self.n_folds, n // self.min_fold))
+        if k < 2:
+            # A single fold would have to be scored on the data it was fitted on,
+            # which selects whichever candidate overfits hardest - isotonic, every
+            # time.  Below two usable folds there is no honest comparison to make.
+            self.scores_ = {}
+            self.evaluated_ = False
+            self.selected_ = "identity"
+            self.model_ = self._build("identity")
+            return self
+        folds = np.array_split(rng.permutation(n), k)
 
         per_fold: dict[str, list[float]] = {c: [] for c in self.candidates}
         for k in range(len(folds)):
             te = folds[k]
             tr = np.concatenate([folds[i] for i in range(len(folds)) if i != k]) if len(folds) > 1 else te
-            if te.size < 5 or tr.size < 5:
+            if te.size < self.min_fold or tr.size < self.min_fold:
                 continue
             for name in self.candidates:
                 try:
@@ -787,6 +806,12 @@ class SelectByCrossValidation(Recalibrator):
             means[name] = float(v.mean()) if v.size else float("inf")
             ses[name] = float(v.std(ddof=1) / np.sqrt(v.size)) if v.size > 1 else 0.0
         self.scores_ = means
+        self.evaluated_ = bool(any(np.isfinite(v) for v in means.values()))
+        if not self.evaluated_:
+            # Nothing could be scored: fall back to the identity and say so.
+            self.selected_ = "identity"
+            self.model_ = self._build("identity")
+            return self
 
         best = min(means, key=lambda k: means[k])
         pick = best
