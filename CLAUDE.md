@@ -54,7 +54,7 @@ Two consequences that have already caused real bugs here:
 ## Before committing a change that touches an estimator
 
 ```bash
-pytest -q                                     # 58 tests
+pytest -q                                     # 59 tests
 python experiments/run_study.py --preset smoke --out /tmp/check   # wiring only
 python scripts/check_manuscript.py paper/
 ```

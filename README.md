@@ -44,7 +44,7 @@ it.
 
 ```bash
 pip install -e ".[all]"
-pytest -q                                        # 56 tests, ~30 s
+pytest -q                                        # 59 tests, ~20 s
 
 # Run the whole study on the simulator (no data access needed)
 python experiments/run_study.py --preset smoke   # ~1 min, checks the wiring
@@ -122,7 +122,7 @@ src/ecgcal/          everything that knows what a lead or an SCP code is
 
 experiments/         pipeline, analysis tables, figures, manuscript numbers
 paper/               manuscript; numbers.tex is generated, never hand-edited
-tests/               56 tests, including regressions for every defect found
+tests/               59 tests, including regressions for every defect found
 docs/                data access, the federated protocol, environment limits
 ```
 

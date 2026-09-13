@@ -153,9 +153,10 @@ def recalibration_table(
 ) -> pd.DataFrame:
     """Post-hoc ECE per method as the target label budget grows.
 
-    Calibration sets are drawn at the **patient** level and evaluated on the
-    disjoint remainder, so the reported budget is in patients chart-reviewed -
-    the unit a hospital plans in - rather than in records.
+    Calibration sets are drawn at the **patient** level from a pool disjoint
+    from a fixed evaluation half, so the reported budget is in patients
+    chart-reviewed - the unit a hospital plans in - rather than in records, and
+    every budget is scored on the same patients.
     """
     from ecgcal.data.splits import calibration_split
 
@@ -172,18 +173,48 @@ def recalibration_table(
         # Clip the budget grid to what this site can actually support: a
         # calibration set that leaves no evaluation set produces no row, and a
         # silently absent row is indistinguishable from a method that failed.
-        usable = [n for n in n_cal_grid if n == 0 or n <= len(s) - 100]
+        # A fixed held-out evaluation set, drawn once per (site, label).  If the
+        # evaluation set shrank as the budget grew - which is what splitting
+        # afresh per budget does - then every method's curve would move for a
+        # reason unrelated to the method, and a zero-label method would appear to
+        # change with a budget it never spends.
+        eval_idx, pool_idx = calibration_split(len(s), int(0.5 * len(s)), seed=seed,
+                                               patient_ids=pid)
+        if len(eval_idx) < 100 or len(pool_idx) < 10:
+            continue
+        pool_pid = pid[pool_idx]
+        max_budget = len(pool_idx)
+        usable = [n for n in n_cal_grid if n <= max_budget]
+
+        # A purely unlabeled recalibrator's fit depends on (site, label, method)
+        # alone - not on the calibration draw or the budget - so fitting it once
+        # is not only faster but is the only way to be sure the budget axis is
+        # not quietly influencing a method that spends nothing.  The gated
+        # estimator runs a Monte-Carlo calibrated test on every fit, so this is
+        # the difference between seconds and an hour on the full matrix.
+        unlabeled_cache: dict[str, object] = {}
+
+        def unlabeled_fit(method: str):
+            if method not in unlabeled_cache:
+                unlabeled_cache[method] = fit_recalibrator(
+                    method, s, None, pi_s=pi_s, source_scores=ss, source_labels=sy,
+                    target_unlabeled=s,
+                )
+            return unlabeled_cache[method]
+
         for n_cal in usable:
             for method in methods:
                 vals, failures = [], []
                 unlabeled = method.startswith("prior_correction") or method == "identity"
-                reps = 1 if (n_cal == 0 and unlabeled) else n_repeats
+                reps = 1 if unlabeled else n_repeats
                 for r in range(reps):
-                    cal, ev = calibration_split(len(s), max(n_cal, 1), seed=seed + r, patient_ids=pid)
-                    if len(ev) < 100:
-                        continue
+                    sub, _ = calibration_split(len(pool_idx), max(n_cal, 1),
+                                               seed=seed + r, patient_ids=pool_pid)
+                    cal, ev = pool_idx[sub], eval_idx
                     try:
-                        if n_cal == 0 and not unlabeled:
+                        if unlabeled:
+                            rec = unlabeled_fit(method)
+                        elif n_cal == 0:
                             # a labelled method with no labels is the identity
                             rec = fit_recalibrator("identity", s[ev][:1], y[ev][:1])
                         else:
