@@ -361,16 +361,16 @@ def fig_conformal(conf: pd.DataFrame, out: Path) -> Path | None:
         return None
     order = ["split_target", "weighted_source", "weighted_source_oracle",
              "hybrid_g0", "hybrid_g0.02", "hybrid_g0.05"]
-    pretty = {"split_target": "split conformal\n(target labels)",
-              "weighted_source": "reweighted source\n(0 labels)",
-              "weighted_source_oracle": "reweighted source\n(oracle prevalence)",
-              "hybrid_g0": "hybrid γ=0", "hybrid_g0.02": "hybrid γ=0.02",
-              "hybrid_g0.05": "hybrid γ=0.05"}
+    pretty = {"split_target": "split\n(target labels)",
+              "weighted_source": "reweighted src\n(0 labels, est.)",
+              "weighted_source_oracle": "reweighted src\n(oracle prior)",
+              "hybrid_g0": "hybrid\nγ=0", "hybrid_g0.02": "hybrid\nγ=0.02",
+              "hybrid_g0.05": "hybrid\nγ=0.05"}
     methods = [m for m in order if m in set(c.method)]
     sites = _order_sites(c.site.unique())
     alpha = float(c.alpha.iloc[0])
 
-    fig, ax = plt.subplots(figsize=(7.6, 3.8))
+    fig, ax = plt.subplots(figsize=(9.0, 3.9))
     w = 0.8 / max(len(sites), 1)
     x = np.arange(len(methods))
     for i, s in enumerate(sites):
@@ -383,14 +383,24 @@ def fig_conformal(conf: pd.DataFrame, out: Path) -> Path | None:
             color=INK_SECONDARY, va="center", ha="left")
     ax.set_xticks(x)
     ax.set_xticklabels([pretty[m] for m in methods], fontsize=7.8)
-    lo = min(0.8, float(np.nanmin(c.coverage_mean)) - 0.02)
-    ax.set_ylim(lo, 1.0)
+    # Zoom to the range the data occupies.  Anchoring the axis far below the
+    # lowest bar compresses exactly the differences the figure is about, and the
+    # question here is never "is coverage large" but "is it above the line".
+    # Keep the full range in view: the unlabeled arms fail catastrophically at
+    # the site-label pairs where the prior estimate fails, and cropping to a
+    # comfortable band would hide the failures the figure exists to show.
+    lo = float(np.nanmin(c.coverage_mean)) - 0.04
+    ax.set_ylim(max(0.0, lo), 1.0)
     ax.set_ylabel("empirical coverage")
-    ax.legend(fontsize=7.2, ncol=min(3, len(sites)), loc="lower left")
+    # Legend above the plot: inside it would sit over bars at some budgets and
+    # over the axis band at others.
+    ax.legend(fontsize=7.4, ncol=min(5, len(sites)), loc="lower left",
+              bbox_to_anchor=(0.0, 1.02), borderaxespad=0.0)
     despine(ax)
     ax.grid(axis="x", visible=False)
-    title(ax, "Conformal coverage under cross-national transfer",
-          "mean over repeated calibration draws; bars below the line are invalid")
+    # Title above the legend, subtitle left to the caption: three stacked text
+    # blocks over a short axis is how they end up on top of one another.
+    ax.set_title("Conformal coverage under cross-national transfer", color=INK, pad=30)
     fig.tight_layout()
     p = out / "fig6_conformal.pdf"
     fig.savefig(p)

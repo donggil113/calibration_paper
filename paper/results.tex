@@ -242,14 +242,30 @@ computable constant, not a sharp one.
 
 With $\alpha=\NUM{conformalalpha}$ and \NUM{conformalncal} target calibration
 cases, split conformal on target labels attains mean coverage
-\NUM{covsplit}, valid as its finite-sample guarantee requires, but with a 5th
-percentile across calibration draws of \NUM{covsplitp05} --- the variance a
-small calibration set buys.  Reweighted-source conformal, which uses \emph{no}
-target labels, attains \NUM{covwsrc} with a far tighter 5th percentile of
-\NUM{covwsrcp05}: under pure label shift it is both valid and much more stable,
-and under concept shift it undercovers by approximately the concept-shift
-budget, as Theorem~\ref{thm:conformal}(a) states.  Running the hybrid at the
+\NUM{covsplit}, and --- the point of a distribution-free guarantee --- its
+\emph{worst} site--label pair still attains \NUM{covsplitmin}.  Its cost is
+variance rather than bias: the 5th percentile across calibration draws is
+\NUM{covsplitp05}, which is what a hundred-case calibration set buys.  Reweighted-source conformal, which uses \emph{no}
+target labels, attains \NUM{covwsrc} on average with a far tighter 5th
+percentile of \NUM{covwsrcp05} --- but the average conceals the shape of its
+failure.  At most site--label pairs it is close to nominal; at the pairs where
+the unlabeled prevalence estimate is worst it collapses, reaching
+\NUM{covwsrcmin} at one pair where the estimator put the prevalence at 0.91
+against a truth of 0.08.  This is Theorem~\ref{thm:conformal}(a) behaving as
+stated rather than failing: its guarantee is $1-\alpha-\gamma$, and when the
+weights are that wrong the effective $\gamma$ is near one and the bound is
+vacuous.  It is the same root cause as the recalibration result --- an unlabeled
+prior that cannot be trusted --- surfacing in a second procedure.  Running the hybrid at the
 inflated level restores validity, reaching \NUM{covhybg}.
+
+One observation here is worth recording because it cuts against intuition.  The
+unlabeled arm run with the \emph{true} target prevalence covers \emph{worse}
+(\NUM{covwsrcoracle}) than the same arm run with the biased prevalence that
+black-box shift estimation supplies (\NUM{covwsrc}).  The biased estimate is
+too high, which up-weights the positive calibration points, which widens the
+sets.  It is conservative by accident, not by construction, and it would be a
+mistake to read the better number as evidence that the unlabeled estimate is
+sound --- which is exactly why both are reported.
 
 \begin{figure}[t]\centering
 \includegraphics[width=\textwidth]{figures/fig6_conformal.pdf}

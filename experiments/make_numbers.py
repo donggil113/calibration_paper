@@ -232,11 +232,17 @@ def build(res: Path) -> dict[str, str]:
     if len(conf):
         c = conf[conf.reliable_estimate] if "reliable_estimate" in conf else conf
         for meth, key in [("split_target", "split"), ("weighted_source", "wsrc"),
-                          ("hybrid_g0.05", "hybg")]:
+                          ("weighted_source_oracle", "wsrcoracle"), ("hybrid_g0.05", "hybg")]:
             sub = c[c.method == meth]
             if len(sub):
                 m[f"cov{key}"] = _fmt(sub.coverage_mean.mean(), "{:.3f}")
                 m[f"cov{key}p05"] = _fmt(sub.coverage_p05.mean(), "{:.3f}")
+        ws = c[c.method == "weighted_source"]
+        if len(ws):
+            m["covwsrcmin"] = _fmt(float(ws.coverage_mean.min()), "{:.3f}")
+        sp = c[c.method == "split_target"]
+        if len(sp):
+            m["covsplitmin"] = _fmt(float(sp.coverage_mean.min()), "{:.3f}")
         m["conformalalpha"] = _fmt(float(c.alpha.iloc[0]), "{:.2f}")
         m["conformalncal"] = str(int(c.n_cal.iloc[0]))
 
