@@ -50,6 +50,19 @@ def _labels_required(method: str) -> int:
         return int(cls(pi_s=0.5).n_labels_required)
 
 
+def _say(as_json: bool, *lines: str) -> None:
+    """Print human-facing prose, unless the caller asked for machine output.
+
+    ``--json`` has to mean *only* JSON.  Interleaving guidance with the payload
+    makes the output unparseable, which defeats the flag entirely - and the
+    guidance is the part a script does not want.
+    """
+    if as_json:
+        return
+    for line in lines:
+        print(line)
+
+
 def _emit(obj: dict, as_json: bool) -> None:
     if as_json:
         print(json.dumps(obj, indent=2, default=float))
@@ -77,13 +90,13 @@ def cmd_audit(args) -> int:
     verdict = (
         "NOT REFUTED - label shift is not rejected on your unlabeled data.\n"
         "  This is NOT a licence to apply the unlabeled correction: the test cannot\n"
-        "  see shift along the label-shift cone. Measure your prevalence instead\n"
-        "  (recalib fix --method prevalence_correction) on a few dozen cases."
+        "  see shift along the label-shift cone, which is the direction cross-national\n"
+        "  shift takes. Decide with labels instead: `recalib fix` (cv_select)."
         if b["bbse_trustworthy"]
         else "REFUTED - this site's shift is not reducible to prevalence.\n"
              "  Do not apply an unlabeled correction here."
     )
-    print(f"\n{verdict}\n")
+    _say(args.json, "", verdict, "")
     _emit({
         "n_target_unlabeled": b["n_target_unlabeled"],
         "prevalence_source": b["pi_s"],
@@ -95,10 +108,12 @@ def cmd_audit(args) -> int:
         "min_concept_shift_gamma": b["gamma_min"],
         "D_label_recoverable_free": b["d_label_l1"],
     }, args.json)
-    print("\n  Next step: `recalib budget` prices the labelled work, then")
-    print("  `recalib fix` (default --method cv_select) spends those labels first on")
-    print("  deciding whether your site needs recalibration at all. Fitting a map at a")
-    print("  site that does not need one made calibration worse in our transfer matrix.")
+    _say(args.json,
+         "",
+         "  Next step: `recalib budget` prices the labelled work, then",
+         "  `recalib fix` (default --method cv_select) spends those labels first on",
+         "  deciding whether your site needs recalibration at all. Fitting a map at a",
+         "  site that does not need one made calibration worse in our transfer matrix.")
     return 0
 
 
@@ -132,10 +147,13 @@ def cmd_budget(args) -> int:
     }
     zero_suffices = gamma <= args.eps and lb["n_star"] == 0
     out["verdict"] = "zero labels suffice" if zero_suffices else "labels required"
-    print()
+    _say(args.json, "")
     if zero_suffices:
-        print("ZERO LABELS SUFFICE - the residual shift is inside your calibration budget.\n")
+        _say(args.json,
+             "ZERO LABELS SUFFICE - the residual shift is inside your calibration budget.", "")
     _emit(out, args.json)
+    if args.json:
+        return 0
     if zero_suffices:
         # The sufficient count above is what a *labelled* one-parameter fit would
         # cost; quoting it as a plan here would contradict the verdict.
@@ -186,14 +204,14 @@ def cmd_fix(args) -> int:
     if ty is not None:
         out["ece_before"] = expected_calibration_error(t, ty)
         out["ece_after"] = expected_calibration_error(fixed, ty)
-    print()
+    _say(args.json, "")
     _emit(out, args.json)
 
     if args.out:
         import pandas as pd
 
         pd.DataFrame({"score_raw": t, "score_calibrated": fixed}).to_csv(args.out, index=False)
-        print(f"\n  wrote {args.out}")
+        _say(args.json, f"\n  wrote {args.out}")
     return 0
 
 
@@ -210,31 +228,49 @@ def cmd_export(args) -> int:
         s, y, edges, args.label, args.model_id, cohort=args.cohort
     )
     report = audit_export(stats, min_cell=args.min_cell)
-    print()
+    _say(args.json, "")
     _emit(report, args.json)
     if not report["safe"]:
-        print("\n  REFUSING to write: merge the flagged bins with a neighbour and re-export.")
+        _say(args.json,
+             "", "  REFUSING to write: merge the flagged bins with a neighbour and re-export.")
         return 2
     Path(args.out).write_text(stats.to_json())
-    print(f"\n  wrote {args.out} ({len(stats.to_json())} bytes) - safe to transfer")
+    _say(args.json, f"\n  wrote {args.out} ({len(stats.to_json())} bytes) - safe to transfer")
     return 0
 
 
 def main(argv=None) -> int:
+    # Flags shared by every subcommand are declared on a parent parser as well
+    # as on the top level, so they work in either position.  argparse otherwise
+    # accepts them only *before* the subcommand, which is the opposite of the
+    # order everyone types.
+    # SUPPRESS rather than a concrete default: a subparser built from a parent
+    # re-applies that parent's defaults after the top-level parse, so a flag
+    # given *before* the subcommand would be silently overwritten by the
+    # subparser's default. With SUPPRESS an absent flag sets no attribute at
+    # all, the top-level value survives, and the real defaults are applied once,
+    # below.
+    COMMON_DEFAULTS = {"json": False, "score_col": "score", "label_col": "label", "bins": 15}
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--json", action="store_true", default=argparse.SUPPRESS,
+                        help="machine-readable output (JSON only, no prose)")
+    common.add_argument("--score-col", default=argparse.SUPPRESS)
+    common.add_argument("--label-col", default=argparse.SUPPRESS)
+    common.add_argument("--bins", type=int, default=argparse.SUPPRESS)
+
     ap = argparse.ArgumentParser(prog="recalib", description=__doc__,
+                                 parents=[common],
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--json", action="store_true", help="machine-readable output")
-    ap.add_argument("--score-col", default="score")
-    ap.add_argument("--label-col", default="label")
-    ap.add_argument("--bins", type=int, default=15)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    a = sub.add_parser("audit", help="unlabeled: is a free correction licensed here?")
+    a = sub.add_parser("audit", parents=[common],
+                       help="unlabeled: is a correction licensed here?")
     a.add_argument("--target", type=Path, required=True)
     a.add_argument("--source", type=Path, required=True)
     a.set_defaults(func=cmd_audit)
 
-    b = sub.add_parser("budget", help="how many labeled target cases are needed?")
+    b = sub.add_parser("budget", parents=[common],
+                       help="how many labeled target cases are needed?")
     b.add_argument("--target", type=Path, required=True)
     b.add_argument("--source", type=Path, required=True)
     b.add_argument("--eps", type=float, default=0.02)
@@ -242,14 +278,15 @@ def main(argv=None) -> int:
     b.add_argument("--gamma", type=float, default=None)
     b.set_defaults(func=cmd_budget)
 
-    f = sub.add_parser("fix", help="apply a recalibration")
+    f = sub.add_parser("fix", parents=[common], help="decide on, and apply, a recalibration")
     f.add_argument("--target", type=Path, required=True)
     f.add_argument("--source", type=Path, required=True)
     f.add_argument("--method", default="cv_select")
     f.add_argument("--out", type=Path, default=None)
     f.set_defaults(func=cmd_fix)
 
-    e = sub.add_parser("export", help="federated: export sufficient statistics only")
+    e = sub.add_parser("export", parents=[common],
+                       help="federated: export sufficient statistics only")
     e.add_argument("--scores", type=Path, required=True)
     e.add_argument("--edges", type=Path, required=True, help="JSON list of source bin edges")
     e.add_argument("--label", required=True)
@@ -260,6 +297,9 @@ def main(argv=None) -> int:
     e.set_defaults(func=cmd_export)
 
     args = ap.parse_args(argv)
+    for key, value in COMMON_DEFAULTS.items():
+        if not hasattr(args, key):
+            setattr(args, key, value)
     return args.func(args)
 
 
