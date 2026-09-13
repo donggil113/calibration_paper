@@ -403,11 +403,15 @@ the inflated level
 \[
   \alpha' \;=\; \alpha-(1-\lambda)\gamma .
 \]
-If $\alpha'>0$ then target coverage is $\ge1-\alpha-O\big((n+m)^{-1}\big)$.
-\item \textbf{(Efficiency.)}  The hybrid quantile has variance
-$O\big(1/(\lambda^2 n+(1-\lambda)^2 m_{\mathrm{eff}})\big)$ against $O(1/n)$ for
-target-only conformal, where $m_{\mathrm{eff}}$ is the weighted effective
-source size.
+If $\alpha'>0$ then target coverage is at least $1-\alpha$, exactly in the
+randomised form of the procedure (each calibration point drawn from the target
+pool with probability $\lambda$) and up to an $O\big((n+m)^{-1}\big)$ term in the
+deterministic weighted form that the software implements.
+\item \textbf{(Efficiency.)}  The hybrid quantile's sampling variance is
+proportional to $\lambda^2/n + (1-\lambda)^2/m_{\mathrm{eff}}$, against $1/n$
+for target-only conformal, where $m_{\mathrm{eff}}$ is the weighted effective
+source size.  For $n$ small and $m_{\mathrm{eff}}\gg n$ this is smaller by a
+factor of roughly $\lambda^{2}$.
 \end{enumerate}
 \end{theorem}
 
@@ -419,17 +423,29 @@ $P_{s\to t}$.  Coverage is the expectation of a $[0,1]$-valued indicator, so it
 changes by at most $\mathrm{TV}(P_t,P_{s\to t})\le\gamma$ when the measure is
 changed to $P_t$.
 
-(b) Realise the weighting as a mixture: each calibration point is drawn from
-$P_t$ with probability $\lambda$ and from $P_{s\to t}$ otherwise, so
-calibration points are i.i.d.\ from $Q_\lambda=\lambda P_t+(1-\lambda)P_{s\to t}$
-and the weighted empirical quantile is the quantile of $Q_\lambda$ up to the
-usual $O((n+m)^{-1})$ finite-sample correction.  Since
-$\mathrm{TV}(P_t,Q_\lambda)\le(1-\lambda)\gamma$, part (a)'s argument gives
+(b) Consider first the randomised form, in which each calibration point is drawn
+from $P_t$ with probability $\lambda$ and from $P_{s\to t}$ otherwise.  Its
+calibration points are then i.i.d.\ from
+$Q_\lambda=\lambda P_t+(1-\lambda)P_{s\to t}$ and exchangeable with one another,
+so split conformal at level $\alpha'$ has coverage $\ge 1-\alpha'$ under
+$Q_\lambda$.  Since $\mathrm{TV}(P_t,Q_\lambda)\le(1-\lambda)\gamma$, part (a)'s
+argument transfers it to $P_t$ at a cost of at most $(1-\lambda)\gamma$, giving
 coverage $\ge 1-\alpha'-(1-\lambda)\gamma=1-\alpha$.
 
-(c) The quantile is an order statistic of a weighted empirical distribution;
-its asymptotic variance is inversely proportional to the squared-weight-summed
-sample size, giving the stated rate.
+The deterministic weighted form used in practice places exactly $\lambda$ mass
+on the target points rather than a $\mathrm{Binomial}(n+m,\lambda)$ share of
+them.  Its weighted empirical distribution converges to $Q_\lambda$ at rate
+$O((n+m)^{-1/2})$ and its quantile to the corresponding quantile of $Q_\lambda$,
+so the guarantee holds up to an $O((n+m)^{-1})$ correction in the coverage level
+rather than exactly.  We state both because the distinction is the difference
+between a finite-sample guarantee and an asymptotic one, and only the randomised
+version has the former.
+
+(c) The quantile is an order statistic of a weighted empirical distribution, so
+its sampling variance scales with the sum of squared weights.  With mass
+$\lambda$ spread over $n$ target points and $1-\lambda$ over $m_{\mathrm{eff}}$
+effective source points, that sum is
+$\lambda^{2}/n+(1-\lambda)^{2}/m_{\mathrm{eff}}$, which is the stated rate.
 \end{proof}
 
 \begin{remark}[Reading the trade-off]
