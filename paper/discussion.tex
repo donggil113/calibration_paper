@@ -17,18 +17,20 @@ see the shift direction responsible, and no gating or shrinkage rule we tried
 repaired it.  We report that because a method that fails in the direction of
 overconfidence is exactly the kind a deployment guideline must not contain.
 
-What the results do support is a decision procedure rather than a method.
-Adjudicate a few dozen target cases.  Use them first to ask whether your site
-has a cliff at all: cross-validated selection over a candidate set that includes
-doing nothing answers that from the same labels, and at a site whose calibration
-is already acceptable it correctly returns the model unchanged.  Fitting a map
-there is not neutral --- in our matrix it made the one site without a cliff
-measurably worse, and it was worse than shipping unchanged in a majority of
-site--label pairs at small budgets.  Where a cliff is present, spend the labels
-on the map; a nonparametric fit dominates once past roughly a hundred cases and
-a two-parameter one below that.  If you cannot adjudicate even a few dozen
-cases, ship unchanged and report the model's output as ranks rather than as
-risks.
+What the results do support is budget-dependent, and the dependence is the
+point.  Below roughly fifty adjudicated cases, ship the model unchanged and
+report its output as ranks rather than as risks.  This is not caution for its
+own sake: at that budget a fitted map was worse than doing nothing in a majority
+of site--label pairs, and cross-validated selection did not rescue it, because
+the evidence needed to decide whether to act is the same scarce evidence that
+would be used to act.  There is no procedure that manufactures information that
+is not there.
+
+With a few hundred cases, use cross-validated selection over a candidate set
+that includes doing nothing.  By that budget it both acts where a cliff exists
+and abstains where one does not, and it improves the tail of the outcome
+distribution --- the bad-day number, which is what a deployment actually risks
+--- as well as the average.
 
 The uncomfortable part of this is worth stating directly: none of these steps is
 free, and the step we hoped would be --- inferring the target prevalence from

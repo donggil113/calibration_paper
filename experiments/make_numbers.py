@@ -201,6 +201,20 @@ def build(res: Path) -> dict[str, str]:
             sub = cvs[cvs.n_cal == 100]
             if len(sub):
                 m["ececvselect"] = _fmt(float(sub.ece_mean.mean()), "{:.4f}")
+            # Selection's per-pair record, which the means hide and which is the
+            # reason the recommendation is budget-dependent rather than absolute.
+            cv_cmp = cvs[["site", "label", "n_cal", "ece_mean"]].merge(
+                idn, on=["site", "label", "n_cal"]
+            )
+            lo = cv_cmp[cv_cmp.n_cal == 25]
+            if len(lo):
+                m["cvworseatlow"] = str(int((lo.ece_mean > lo.identity_ece).sum()))
+            for budget in (400, 800):
+                hi = cv_cmp[cv_cmp.n_cal == budget]
+                if len(hi):
+                    m["cvworseathigh"] = str(int((hi.ece_mean > hi.identity_ece).sum()))
+                    m["cvresolvebudget"] = str(budget)
+                    break
 
         # Where measuring the prevalence starts to pay, and where it plateaus.
         prev = r[r.method == "prevalence_correction"].groupby("n_cal").ece_mean.mean()

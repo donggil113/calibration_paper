@@ -24,7 +24,7 @@
   "preset": "main",
   "eps": 0.02,
   "alpha": 0.1,
-  "elapsed_seconds": 324.7317318916321,
+  "elapsed_seconds": 374.55131363868713,
   "model": {
     "reused_from": "results/main_foundation/scored.npz"
   },
@@ -71,9 +71,9 @@
   "rows": {
     "transfer": 36,
     "decomposition": 30,
-    "recalibration": 2100,
-    "nstar": 180,
-    "conformal": 180
+    "recalibration": 2310,
+    "nstar": 0,
+    "conformal": 0
   },
   "environment": {
     "python": "3.11.15",

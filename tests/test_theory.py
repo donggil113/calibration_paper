@@ -610,3 +610,42 @@ def test_cv_selection_refuses_to_compare_on_a_single_fold():
 
     rec = fit_recalibrator("cv_select", s[:60], y[:60])
     assert rec.evaluated_ is True
+
+
+def test_nonconformity_survives_saturated_scores():
+    """Regression: catastrophic cancellation in the negative-class score.
+
+    ``1 - (1 - p)`` equals ``p`` in exact arithmetic and returns exactly 0 for
+    any ``p`` below the double-precision resolution of 1.  A model that
+    separates a label cleanly produces exactly such scores; the whole
+    calibration sample then collapsed to nonconformity 0, the conformal quantile
+    became 0, and every prediction set was empty - while the set-construction
+    code, which uses ``p`` directly, disagreed about the same quantity.
+    Measured coverage was 0.02 on labels whose quantile still satisfied its own
+    guarantee at 0.96.
+    """
+    from recalib_kit.conformal import nonconformity_binary
+
+    p = np.array([1e-20, 1e-12, 1e-3, 0.5])
+    got = nonconformity_binary(p, np.zeros(4))
+    assert np.allclose(got, p, rtol=0, atol=0), got
+
+
+def test_split_conformal_is_valid_even_on_a_perfectly_separating_model():
+    """The distribution-free guarantee must not depend on score conditioning."""
+    from recalib_kit.conformal import coverage_report, split_conformal
+
+    rng = np.random.default_rng(130)
+    n = 20000
+    y = (rng.random(n) < 0.02).astype(float)
+    # a perfectly separating model: scores saturate at the ends of [0, 1]
+    z = np.where(y == 1, rng.normal(40, 2, n), rng.normal(-40, 2, n))
+    s = 1.0 / (1.0 + np.exp(-z))
+    assert (s == 0).sum() + (s == 1).sum() > 0, "test needs saturated scores"
+
+    covs = []
+    for _ in range(80):
+        perm = rng.permutation(n)
+        cal, ev = perm[:200], perm[200:]
+        covs.append(coverage_report(split_conformal(s[cal], y[cal], s[ev], 0.1), y[ev])["coverage"])
+    assert np.mean(covs) >= 0.89, np.mean(covs)

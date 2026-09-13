@@ -163,26 +163,40 @@ Above roughly a hundred labels a nonparametric recalibration dominates it, so
 this occupies a narrow band of the budget --- precisely the band a site at the
 start of a deployment occupies.
 
-\paragraph{Recalibration is a decision, not a default.}
+\paragraph{Recalibration is a decision, and at small budgets it is a hard one.}
 The averages in Table~\ref{tab:recal} favour a nonparametric fit at every
 budget, and reading them as a recommendation would be a mistake.  Broken out by
 site and label, isotonic regression is \emph{worse} than shipping unchanged in
 \NUM{isoworseatlow} of \NUM{isopairs} pairs at 25 labelled cases and
-\NUM{isoworseathigh} at 100.  The average is carried by the single worst-
-calibrated site: where the cliff is a factor of ten, a fitted map removes most
-of it; where calibration was already acceptable, the same map adds more
+\NUM{isoworseathigh} at 100.  The average is carried by the single
+worst-calibrated site: where the cliff is a factor of ten a fitted map removes
+most of it, and where calibration was already acceptable the same map adds more
 estimation noise than it removes bias.  At the same-country control the mean ECE
 goes from \NUM{georgiaidentity} to \NUM{georgiaisotonic} --- recalibration makes
 the one site with no cliff measurably worse.
 
-The same labels that would fit a map can decide whether to fit one.  Selecting
-among candidates --- with the identity always among them --- by cross-validation
-on the calibration set picks a map where there is a cliff and leaves the model
-alone where there is not.  In controlled simulation this is the difference
-between a nine-fold degradation and none: at a site with no cliff, isotonic
-takes ECE from 0.0019 to 0.0178 while selection returns the model unchanged.
-We regard this, rather than any particular recalibration family, as the
-operational recommendation.
+The natural remedy is to spend the labels on the decision as well as the fit.
+Cross-validated selection over a candidate set that includes doing nothing
+delivers part of what one would hope: it improves the mean at every budget
+(\NUM{ececvselect} at 100 cases) and it improves the 90th percentile across
+calibration draws substantially at small budgets, where the tail is what a
+deployment actually risks.  In controlled simulation, where cliff sizes are
+unambiguous, it is decisive: at a site with no cliff isotonic takes ECE from
+0.0019 to 0.0178 while selection returns the model untouched.
+
+It does not, however, rescue the per-pair picture at very small budgets.  At 25
+cases selection is still worse than shipping unchanged in
+\NUM{cvworseatlow} of \NUM{isopairs} pairs --- no better than fitting a map
+outright --- because the cross-validated estimate on which it decides is itself
+estimated from those same 25 cases.  By \NUM{cvresolvebudget} cases it is worse
+in only \NUM{cvworseathigh}.
+
+We think the honest reading is this.  Deciding whether to recalibrate requires
+evidence, the evidence is the labels, and below a few dozen cases there is not
+enough of it to decide \emph{or} to fit.  A site in that position should ship
+the model unchanged and report its output as ranks rather than as risks.  A site
+that can adjudicate a few hundred should use selection, which by then both acts
+where it should and abstains where it should.
 
 \paragraph{A single temperature cannot repair a prior shift.}
 Temperature scaling improves only slowly with budget and never reaches the

@@ -70,10 +70,25 @@ def min_n_for_level(alpha: float) -> int:
 
 
 def nonconformity_binary(scores: np.ndarray, labels: np.ndarray) -> np.ndarray:
-    r"""Score :math:`s(x,y) = 1 - \hat p(y\mid x)`: small when the model agreed."""
+    r"""Score :math:`s(x,y) = 1 - \hat p(y\mid x)`: small when the model agreed.
+
+    Written as a branch rather than as ``1 - (1 - p)`` for the negative class.
+    Those are equal in exact arithmetic and catastrophically different in
+    floating point: for :math:`p` below the double-precision resolution of 1,
+    :math:`1-p` rounds to exactly 1 and the round trip returns exactly 0 instead
+    of :math:`p`.
+
+    That is not a rounding nicety.  A model that separates a label cleanly
+    produces exactly such scores, the whole calibration sample collapses to
+    nonconformity 0, the conformal quantile becomes 0, and every prediction set
+    computed against it is empty - while the set-construction code, which uses
+    :math:`p` directly, disagrees with the calibration code about what the same
+    quantity is.  Measured coverage fell to 0.02 on labels where the quantile
+    itself still satisfied its guarantee at 0.96.
+    """
     p = np.clip(np.asarray(scores, float).ravel(), 0.0, 1.0)
     y = np.asarray(labels, float).ravel()
-    return 1.0 - np.where(y == 1, p, 1.0 - p)
+    return np.where(y == 1, 1.0 - p, p)
 
 
 def conformal_quantile(
