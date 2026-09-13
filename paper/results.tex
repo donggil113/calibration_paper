@@ -160,10 +160,14 @@ pairs do not reach the budget at any tested count, and for those the honest
 advice is a richer recalibration family or a re-examined model, not more
 labels.
 
-The analytic bounds bracket the empirical answer tightly.  At the threshold
-$\Gamma=\varepsilon$ the plug-in sufficient bound and the information-theoretic
-necessary bound agree to within a few per cent, so the constant in
-Theorem~\ref{thm:samplesize}(a) is not merely finite but nearly sharp.
+The analytic bounds are complementary rather than a bracket: as
+Remark~\ref{rem:regimes} sets out, the sufficient bound is finite only below the
+threshold and the necessary bound is non-vacuous only above it.  What the data
+can check is therefore the sufficient side, and there the plug-in formula tracks
+the measured requirement: across site--label pairs below the threshold the
+empirical $n^\star$ lies inside the bound, and both move as the inverse square of
+the remaining budget $(\varepsilon-\Gamma)$.  We claim that exponent, and a
+computable constant, not a sharp one.
 
 \subsection{Theorem 3: prediction sets}
 

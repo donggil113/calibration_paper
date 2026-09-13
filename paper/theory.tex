@@ -293,7 +293,7 @@ computable from unlabeled target scores, so a site can price the work before
 doing it.
 \item \textbf{(Necessity, and a threshold.)}  If $\Gamma\ge\varepsilon$, any
 procedure whatsoever requires
-$n\ge(1-2\alpha)/(8\varepsilon^{2})$.
+$n\ge(1-2\alpha)^{2}/(8\varepsilon^{2})$.
 If $\Gamma<\varepsilon$, no such lower bound exists: $n^\star=0$ and the free
 correction alone meets the budget.
 \end{enumerate}
@@ -323,13 +323,49 @@ separation, so a procedure failing with probability $<\alpha$ under both yields
 a test of $P_0$ versus $P_1$ with error $<\alpha$, which forces
 $\mathrm{TV}(P_0^{\otimes n},P_1^{\otimes n})\ge1-2\alpha$.  Pinsker and
 tensorisation give
-$\mathrm{TV}(P_0^{\otimes n},P_1^{\otimes n})^2\le \tfrac{n}{2}\mathrm{KL}(P_0\|P_1)\le 2n\varepsilon^2$,
-whence $n\ge(1-2\alpha)^2/(8\varepsilon^2)\ge(1-2\alpha)/(8\varepsilon^2)$ for
-$\alpha\le 1/2$.  For the threshold: both hypotheses must lie in the class of
+$\mathrm{TV}(P_0^{\otimes n},P_1^{\otimes n})^2\le \tfrac{n}{2}\mathrm{KL}(P_0\|P_1)$,
+and for Bernoulli conditionals separated by $2\varepsilon$ about a common
+success probability $p$,
+$\mathrm{KL}(P_0\|P_1)\le 4\varepsilon^{2}/\big(p(1-p)\big)$.  Choosing the hard
+instance at $p=1/2$ maximises $p(1-p)$ and gives
+$\mathrm{TV}^2 \le 8n\varepsilon^{2}$, whence
+$n\ge(1-2\alpha)^{2}/(8\varepsilon^{2})$.  (Note the exponent: one cannot pass
+from $(1-2\alpha)^{2}$ to $(1-2\alpha)$, since squaring a number in $(0,1)$
+makes it smaller and the weaker expression would \emph{overstate} what has been
+proved necessary.)  For the threshold: both hypotheses must lie in the class of
 admissible concept shifts, a set of $L^1$ radius $\Gamma$ about $T\circ f$; two
 of its points are at most $2\Gamma$ apart, so a separation of $2\varepsilon$ is
 constructible only if $\Gamma\ge\varepsilon$.
 \end{proof}
+
+\begin{remark}[The two bounds are complementary, not a bracket]\label{rem:regimes}
+It is worth being explicit that (a) and (c) do not apply in the same regime, and
+so do not sandwich a common quantity.  The sufficient bound is finite only for
+$\Gamma<\varepsilon$ and diverges as $\Gamma\uparrow\varepsilon$, because a
+one-parameter family has no capacity left once the residual shift consumes the
+budget.  The necessary bound is non-vacuous only for $\Gamma\ge\varepsilon$,
+because below that no hard instance fits inside the admissible ball.  Together
+they partition the parameter space at $\Gamma=\varepsilon$:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+regime & one-parameter recalibration & any procedure \\
+\midrule
+$\Gamma \ll \varepsilon$ & $n=0$ suffices (the free correction) & $n=0$ \\
+$\Gamma < \varepsilon$ & $n \le z^2 L^2 / \big(I(\varepsilon-\Gamma)^2\big)$ & --- \\
+$\Gamma \ge \varepsilon$ & unattainable at any $n$ & $n \ge (1-2\alpha)^2/(8\varepsilon^2)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+What \emph{is} matched is the rate: both sides scale as the inverse square of
+the budget actually available, $(\varepsilon-\Gamma)^{-2}$ above and
+$\varepsilon^{-2}$ below.  We claim the exponent, not the constant.  An earlier
+draft of this paper reported the two bounds as agreeing to within a few per
+cent; that comparison evaluated them at different $\Gamma$ and at different
+confidence levels, and was meaningless.
+\end{remark}
 
 \begin{remark}[Where the labels go]
 The content of (a) is the position of $\Gamma$ in the denominator.  Plain

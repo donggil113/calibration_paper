@@ -192,7 +192,7 @@ def n_star_lower_bound(eps: float, alpha: float = 0.25, gamma: float | None = No
     label distributions stay statistically indistinguishable unless
     :math:`n \gtrsim \varepsilon^{-2}`, giving
 
-    .. math:: n^\star \;\ge\; \frac{1-2\alpha}{8\,\varepsilon^2}.
+    .. math:: n^\star \;\ge\; \frac{(1-2\alpha)^2}{8\,\varepsilon^2}.
 
     The role of :math:`\Gamma` is a *constraint on the construction*, not a
     scale in the rate.  Both hypotheses must lie in the ball of admissible
@@ -215,7 +215,11 @@ def n_star_lower_bound(eps: float, alpha: float = 0.25, gamma: float | None = No
     if gamma is not None and gamma < eps:
         return {"n_star": 0, "eps": eps, "gamma": gamma, "constructible": False,
                 "note": "no hard instance fits inside the Gamma-ball: zero labels can suffice"}
-    n = (1.0 - 2.0 * alpha) / (8.0 * eps**2)
+    # (1 - 2 alpha) SQUARED.  Pinsker plus tensorisation bounds the squared total
+    # variation, so the confidence factor enters squared; dropping the exponent
+    # inflates the bound by up to 4x and would claim more labels are provably
+    # necessary than the argument establishes.
+    n = (1.0 - 2.0 * alpha) ** 2 / (8.0 * eps**2)
     return {"n_star": int(max(0, np.ceil(n))), "eps": eps, "gamma": gamma,
             "constructible": True, "note": ""}
 

@@ -33,10 +33,13 @@ it.
    a rank condition checkable on source data; where nothing can be defended,
    sharp partial-identification bounds replace a false point estimate.
 
-3. **The price.** Matching upper and lower bounds on the number of labeled
-   target recordings a new hospital needs, with an explicit threshold below
-   which the answer is **zero**, and a sample-size formula whose only unknown is
-   the model's mean predictive variance on the site's own *unlabeled* data.
+3. **The price.** Upper and lower bounds on the number of labeled target
+   recordings a new hospital needs. They are complementary rather than a
+   bracket — the sufficient bound applies below a threshold in the residual
+   shift, the necessary bound above it — and they match in *rate*, both scaling
+   as the inverse square of the budget that remains. Below the threshold the
+   answer is **zero**, and the sufficient bound's only unknown is the model's
+   mean predictive variance on the site's own *unlabeled* data.
 
 ---
 

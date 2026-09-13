@@ -61,11 +61,12 @@ estimate, and an unlabeled goodness-of-fit test that tells a site which regime
 it is in before it reviews a single chart.
 
 We then answer the question deployment actually turns on: how many labeled
-target recordings a new hospital needs.  We prove matching upper and lower
-bounds with an explicit threshold --- a site whose residual concept shift falls
-within its calibration budget needs \emph{zero} labels --- and give a
-sample-size formula whose constant is the model's mean predictive variance on
-the target site, computable before any labeling.  A companion result extends
+target recordings a new hospital needs.  We prove complementary upper and lower
+bounds that partition the problem at an explicit threshold --- a site whose
+residual concept shift falls within its calibration budget needs \emph{zero}
+labels, and above that threshold no procedure escapes an inverse-square rate ---
+together with a sample-size formula whose constant is the model's mean
+predictive variance on the target site, computable before any labeling.  A companion result extends
 conformal prediction sets to remain valid under bounded concept shift.  We
 release \texttt{recalib-kit}, which computes all of this from per-bin
 sufficient statistics, so a site whose data cannot leave its institution can
@@ -136,10 +137,11 @@ sufficient conditions for that split to be identified, with black-box shift
 estimation recovered as the degenerate case, an anchor relaxation checkable on
 source data, sharp partial-identification bounds when neither holds, and an
 unlabeled test for which regime a site is in.
-\item \textbf{Theorem~\ref{thm:samplesize} (sample complexity).}  Matching
-bounds on the number of labeled target recordings needed for a stated
-calibration budget, with a threshold below which the answer is zero, and a
-formula whose constant is computable from unlabeled data.
+\item \textbf{Theorem~\ref{thm:samplesize} (sample complexity).}  Complementary
+sufficient and necessary bounds on the number of labeled target recordings
+needed for a stated calibration budget --- matched in rate, partitioning the
+problem at a threshold below which the answer is zero --- with a constant
+computable from unlabeled data.
 \item \textbf{Theorem~\ref{thm:conformal} (conformal transfer).}  Prediction
 sets that remain valid under bounded concept shift, at a coverage price stated
 in advance.

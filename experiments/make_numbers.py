@@ -126,6 +126,15 @@ def build(res: Path) -> dict[str, str]:
             m["ntemprows"] = str(len(tmp))
         m["epsbudget"] = _fmt(float(ns.eps.iloc[0]), "{:.3f}")
         m["alphalevel"] = _fmt(float(ns.alpha.iloc[0]), "{:.2f}")
+        # Below the threshold the sufficient bound applies and the empirical
+        # requirement should sit inside it; above it, only the necessary bound
+        # is meaningful.  The two never apply together, so no ratio between them
+        # is reported - an earlier version quoted one and it was meaningless.
+        below = ns[ns.upper_feasible & ns.n_star_empirical.notna()]
+        if len(below):
+            inside = (below.n_star_empirical <= below.n_star_upper).mean()
+            m["nstarwithinbound"] = _fmt(100 * float(inside), "{:.0f}") + r"\%"
+            m["nstarbelowthreshold"] = str(len(below))
 
     # --- recalibration sweep ------------------------------------------------
     if len(recal):
