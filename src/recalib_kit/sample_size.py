@@ -295,29 +295,54 @@ def empirical_n_star(
             np.array([0, 10, 25, 50, 100, 200, 400, 800, 1600, 3200, 6400]), 0, cap
         ))
 
+    cls = METHODS[method]
+    try:
+        takes_pi_s = "pi_s" in inspect.signature(cls).parameters
+    except (TypeError, ValueError):
+        takes_pi_s = False
+
+    def _new() -> Recalibrator:
+        return cls(pi_s=pi_s if pi_s is not None else float(y.mean())) if takes_pi_s else cls()
+
+    # The unlabeled half of an estimator depends on the site, not on the draw or
+    # the budget, so it is fitted once.  Refitting it per repeat is not only
+    # wasteful - the gated estimator runs a Monte-Carlo calibrated test on every
+    # fit - it would also let a quantity the method never spends labels on drift
+    # across the budget axis.
+    _cache: dict[str, Recalibrator] = {}
+
+    def _unlabeled() -> Recalibrator:
+        if "obj" not in _cache:
+            obj = _new()
+            if source_scores is None or source_labels is None:
+                raise ValueError(f"{method!r} needs source_scores and source_labels")
+            obj.fit_unlabeled(v, source_scores, source_labels)
+            _cache["obj"] = obj
+        return _cache["obj"]
+
     def make(nn: int, cal_idx: np.ndarray) -> Recalibrator:
         """Build a recalibrator; unlabeled parts never see calibration labels.
 
         Dispatch is by capability rather than by a name list, so an estimator
         added to METHODS works here without touching this function.
         """
-        cls = METHODS[method]
-        try:
-            takes_pi_s = "pi_s" in inspect.signature(cls).parameters
-        except (TypeError, ValueError):
-            takes_pi_s = False
-        obj = cls(pi_s=pi_s if pi_s is not None else float(y.mean())) if takes_pi_s else cls()
-
-        if hasattr(obj, "fit_unlabeled"):
-            if source_scores is None or source_labels is None:
-                raise ValueError(f"{method!r} needs source_scores and source_labels")
-            obj.fit_unlabeled(v, source_scores, source_labels)
+        has_unlabeled = hasattr(cls, "fit_unlabeled")
+        if has_unlabeled:
+            obj = _unlabeled()
+            if obj.n_labels_required == 0:
+                return obj
+            if nn == 0:
+                inner = getattr(obj, "prior", None)
+                return inner if inner is not None else METHODS["identity"]()
+            # clone the warm start, then spend the labels on the residual
+            fresh = _new()
+            fresh.prior = obj.prior          # type: ignore[attr-defined]
+            return fresh.fit(v[cal_idx], y[cal_idx])
+        obj = _new()
         if obj.n_labels_required == 0:
             return obj
         if nn == 0:
-            # No labels: fall back to the free half if there is one, else identity.
-            inner = getattr(obj, "prior", None)
-            return inner if inner is not None else METHODS["identity"]()
+            return METHODS["identity"]()
         return obj.fit(v[cal_idx], y[cal_idx])
 
     coverage = np.zeros(len(grid))
