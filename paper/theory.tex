@@ -107,13 +107,26 @@ hence $\delta_{\mathrm{con}}=0$.
 
 Three consequences are worth stating separately.
 
-\begin{remark}[What the decomposition buys]
-$D_{\mathrm{label}}$ is a functional of $(\pi_s,\pi_t,\mu_t)$ alone.  It is
-therefore removable with \emph{zero} target labels whenever $\pi_t$ is
-identified from unlabeled data.  $D_{\mathrm{concept}}$ is by
-Theorem~\ref{thm:decomp}(c) precisely what survives the best possible prior
-correction, and no unlabeled procedure can estimate it: two targets with the
-same $\mu_t$ can have any $g_t$ whatsoever.
+\begin{remark}[What the decomposition buys, and what it does not]
+$D_{\mathrm{label}}$ is a functional of $(\pi_s,\pi_t,\mu_t)$ alone, so
+correcting it requires exactly one unknown quantity: the target prevalence.
+That is a far weaker requirement than fitting a recalibration map, and it is the
+source of the decomposition's practical value.
+
+It is emphatically \emph{not} the same as requiring no labels.  Removing
+$D_{\mathrm{label}}$ without labels requires $\pi_t$ to be identified from
+unlabeled data, which Theorem~\ref{thm:ident} shows holds only under
+conditions that cross-national transfer violates --- and violates in the
+direction (\S\ref{sec:results-recal}) where no unlabeled test can detect it.  A
+prevalence measured on a small labelled sample is identified unconditionally,
+because a proportion needs no model.  The distinction between ``needs one
+scalar'' and ``needs no labels'' is the difference between a deployable
+procedure and an unsafe one, and \S\ref{sec:results-recal} reports which side
+of it the unlabeled route falls on.
+
+$D_{\mathrm{concept}}$ is by Theorem~\ref{thm:decomp}(c) precisely what survives
+the best possible prior correction, and no unlabeled procedure can estimate it:
+two targets with the same $\mu_t$ can have any $g_t$ whatsoever.
 \end{remark}
 
 \begin{remark}[The interaction term is a warning, not a nuisance]\label{rem:R}

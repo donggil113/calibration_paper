@@ -9,23 +9,33 @@ label count required to close the gap --- all of which are computable with the
 released toolbox, and two of which need no target labels at all.
 
 \paragraph{What a hospital should actually do.}
-The workflow the results support has three steps and a decision point.  Run the
-unlabeled goodness-of-fit test on your own recordings.  If it does not reject,
-the prevalence correction is licensed and free.  If it does, the shift at your
-site is not reducible to prevalence: use the minimax correction, which damps
-itself by how little the data pins the prevalence, and budget for labels using
-the plug-in formula, whose only unknown is your model's mean predictive
-variance on your own unlabeled data.  The number of labels this implies is in
-the hundreds, not the tens of thousands a retraining effort would need.
+Our results do not support the workflow we set out to justify.  We expected the
+unlabeled goodness-of-fit test to license a free prevalence correction at sites
+that pass it.  It does not: the correction applied with an unlabeled prevalence
+estimate was worse than shipping unchanged at every site here, the test cannot
+see the shift direction responsible, and no gating or shrinkage rule we tried
+repaired it.  We report that because a method that fails in the direction of
+overconfidence is exactly the kind a deployment guideline must not contain.
+
+What the results do support is simpler and, for a deploying site, better news
+than it sounds.  Adjudicate a few dozen target cases and use them to measure
+your own prevalence --- not to fit a recalibration map.  A proportion is
+identified without a model, which is precisely what the unlabeled route is not,
+and a few dozen cases is enough because one scalar is all the correction needs.
+Once past roughly a hundred adjudicated cases, switch to a nonparametric
+recalibration, which by then dominates.  Ship unchanged only if you cannot
+adjudicate even a few dozen --- and in that case, report the model's
+probabilities as ranks rather than as risks.
 
 \paragraph{Implications for LMIC deployment.}
-The asymmetry here is favourable and worth stating plainly.  The component of
-the cliff that is free to fix is the prevalence component, and prevalence is
-exactly what differs most between a tertiary centre in a high-income country
-and a primary-care setting elsewhere.  A site with little capacity for chart
-review is disproportionately likely to be in the regime where it needs none.
-The corollary is equally plain: that site still needs the unlabeled test, since
-without it the free correction is a coin flip that can make matters worse.
+The honest reading is more demanding than the one we anticipated, and still
+tractable.  The prevalence component is the large and correctable share of the
+cliff, and prevalence is exactly what differs most between a tertiary centre in
+a high-income country and a primary-care or screening setting elsewhere --- so
+the available gain is largest precisely where deployment is most likely.  But it
+cannot be claimed without labels.  The requirement a site must plan for is a
+few dozen adjudicated tracings, which is a chart-review afternoon rather than a
+research programme, and it is bounded in advance rather than open-ended.
 
 \paragraph{Limitations.}
 \emph{Label provenance.}  Most of these cohorts take their labels from an

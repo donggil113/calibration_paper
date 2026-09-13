@@ -50,15 +50,23 @@ probability of atrial fibrillation is wrong by a factor of several is
 precisely the model a clinical threshold, a triage rule, or a regulatory
 submission will misuse.
 
-We give a decomposition of this calibration cliff into a label-shift component,
-correctable from unlabeled target data alone, and a concept-shift component
-that cannot be.  The split is an exact identity in squared calibration error,
-and we characterise necessary and sufficient conditions for it to be
-identified, relaxing the assumption underlying black-box shift estimation to a
-rank condition checkable on source data.  Where no such condition can be
-defended we give sharp partial-identification bounds instead of a false point
-estimate, and an unlabeled goodness-of-fit test that tells a site which regime
-it is in before it reviews a single chart.
+We give a decomposition of this calibration cliff into a label-shift component
+and a concept-shift component.  The split is an exact identity in squared
+calibration error, and the label-shift half is large: correcting for the target
+prevalence alone removes \NUM{oraclegainpooled} of the calibration error, and
+\NUM{oraclegainbest} at the worst-hit site.
+
+We then report a negative result that changes what to do with it.  That half is
+\emph{not} free.  Recovering the target prevalence from unlabeled data requires
+the label-shift assumption, and cross-national shift violates it in the one
+direction no unlabeled procedure can detect --- along the label-shift cone,
+where we prove the prevalence is unidentified and where a goodness-of-fit test
+is structurally blind.  Applied with an unlabeled prevalence estimate, the
+correction made calibration substantially \emph{worse} than shipping the model
+unchanged at every site we tested.  What it costs instead is small and bounded:
+because the correction needs one scalar rather than a whole recalibration map,
+measuring the prevalence on a few dozen adjudicated target cases recovers
+essentially the entire available benefit.
 
 We then answer the question deployment actually turns on: how many labeled
 target recordings a new hospital needs.  We prove complementary upper and lower
@@ -132,11 +140,13 @@ site effect.
 target calibration error into a label-shift part removable with no labels and a
 concept-shift part that requires them, plus a signed interaction term that
 flags sites where the two shifts cancel and a naive correction backfires.
-\item \textbf{Theorem~\ref{thm:ident} (identification).}  Necessary and
-sufficient conditions for that split to be identified, with black-box shift
-estimation recovered as the degenerate case, an anchor relaxation checkable on
-source data, sharp partial-identification bounds when neither holds, and an
-unlabeled test for which regime a site is in.
+\item \textbf{Theorem~\ref{thm:ident} (identification), and a negative result.}
+Necessary and sufficient conditions for that split to be identified, with
+black-box shift estimation recovered as the degenerate case and an anchor
+relaxation checkable on source data.  Empirically the conditions fail across
+countries in the direction unlabeled data cannot see, so the unlabeled
+correction is unsafe --- and measuring the prevalence on a few dozen labels is
+both cheap and sufficient.
 \item \textbf{Theorem~\ref{thm:samplesize} (sample complexity).}  Complementary
 sufficient and necessary bounds on the number of labeled target recordings
 needed for a stated calibration budget --- matched in rate, partitioning the

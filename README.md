@@ -25,13 +25,19 @@ it.
    as the negative control that separates a *national* effect from a generic
    site effect.
 
-2. **The decomposition.** Target calibration error splits exactly into a
-   **label-shift** component, removable with *no target labels*, and a
-   **concept-shift** component that requires them, plus a signed interaction
-   term that flags sites where the two cancel and a naive correction backfires.
-   Identification conditions are given, relaxing black-box shift estimation to
-   a rank condition checkable on source data; where nothing can be defended,
-   sharp partial-identification bounds replace a false point estimate.
+2. **The decomposition, and a negative result.** Target calibration error
+   splits exactly into a **label-shift** component and a **concept-shift**
+   component, plus a signed interaction term. The label-shift half is large —
+   correcting for the target prevalence removes ~40% of the calibration error,
+   ~59% at the worst-hit site.
+
+   It is *not* free. Recovering the prevalence from unlabeled data needs the
+   label-shift assumption, and cross-national shift violates it in the one
+   direction no unlabeled procedure can detect. Applied with an unlabeled
+   prevalence estimate the correction was **worse than shipping unchanged at
+   every site we tested**. Measuring the prevalence on a few dozen adjudicated
+   cases recovers essentially the whole benefit, because the correction needs
+   one scalar rather than a recalibration map.
 
 3. **The price.** Upper and lower bounds on the number of labeled target
    recordings a new hospital needs. They are complementary rather than a
@@ -82,13 +88,17 @@ recalib fix    --target site_scores.csv --source source_scores.csv \
                --method prior_correction_minimax --out calibrated.csv
 ```
 
-A site should not reach `fix` without having run `audit`. The ungated prior
-correction is *not* risk-free: where the label-shift assumption fails, the
-prevalence it depends on can be wrong by an order of magnitude, and applying it
-then makes calibration substantially worse than shipping the model unchanged.
-`prior_correction_minimax` is the recommended default — it damps itself by how
-little the unlabeled data pins the prevalence, and was never worse than
-shipping unchanged in any regime we tested.
+**Read `audit` as a veto, not a licence.** A rejection tells you the shift at
+your site is not reducible to prevalence, and that is actionable. Acceptance
+does *not* license the unlabeled correction: the test cannot see shift along the
+label-shift cone, and that is the direction cross-national shift takes. In our
+transfer matrix the unlabeled correction was worse than shipping unchanged at
+every site, gated or not.
+
+The recommended route is `--method prevalence_correction`, which measures the
+target prevalence on a small adjudicated sample instead of inferring it. It
+beats shipping unchanged from a few dozen cases and plateaus shortly after;
+past ~100 labels use `isotonic`.
 
 ### For a cohort that cannot export data
 

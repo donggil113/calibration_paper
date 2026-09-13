@@ -11,6 +11,10 @@ they are:
 estimator                     target labels needed  removes
 ============================  ====================  ============================
 :class:`Identity`             0                     nothing (the status quo)
+:class:`PrevalenceCorrection` n (one scalar)        :math:`D_{\text{label}}`, with the
+                                                    prevalence measured rather
+                                                    than inferred  **(best use of
+                                                    a small budget)**
 :class:`PriorCorrection`      0 (unlabeled only)    :math:`D_{\text{label}}`
 :class:`TemperatureScaling`   n (1 parameter)       smooth global distortion
 :class:`PlattScaling`         n (2 parameters)      affine logit distortion
@@ -62,6 +66,8 @@ __all__ = [
     "Recalibrator",
     "Identity",
     "PriorCorrection",
+    "PrevalenceCorrection",
+    "PrevalenceCorrection",
     "TemperatureScaling",
     "PlattScaling",
     "Isotonic",
@@ -155,6 +161,66 @@ class PriorCorrection(Recalibrator):
         if self.pi_t is None:
             raise RuntimeError("PriorCorrection is not fitted")
         return prior_correction(scores, self.pi_s, self.pi_t)
+
+
+class PrevalenceCorrection(Recalibrator):
+    r"""Estimate the target prevalence **from labels**, then apply :math:`T`.
+
+    The cheapest thing a site can buy, and empirically the best use of a very
+    small label budget.  It spends its labels on a single scalar - the target
+    prevalence - rather than on a whole recalibration map, so it converges at
+    the rate of a proportion rather than of a function.
+
+    This estimator exists because the unlabeled route to the same correction
+    turned out not to work.  In our transfer matrix, applying :math:`T` with the
+    *true* prevalence removes about 40% of the target calibration error, and at
+    the worst-hit site nearly 60%.  Applying it with a prevalence estimated from
+    unlabeled data by BBSE makes calibration roughly three times *worse*,
+    because cross-national concept shift moves the score distribution along the
+    label-shift cone, where Theorem 1 says the prevalence is not identified and
+    the unlabeled goodness-of-fit test is structurally blind.
+
+    The labelled version needs very little: in our matrix 25 adjudicated target
+    cases already beat shipping unchanged, and 50 recover essentially the whole
+    oracle benefit.  Above roughly 100 labels a nonparametric recalibration
+    (:class:`Isotonic`, :class:`PlattScaling`) dominates, so this occupies a
+    specific and narrow band of the budget - which is exactly the band a site
+    starting a deployment is in.
+
+    ``min_positives`` guards the degenerate draw: a calibration sample
+    containing no positive case would set the prevalence to zero and collapse
+    every score, so below that count the estimator falls back to the identity
+    rather than acting on a prevalence it has not observed.
+    """
+
+    name = "prevalence_correction"
+
+    def __init__(self, pi_s: float = 0.5, min_positives: int = 3):
+        self.pi_s = pi_s
+        self.min_positives = min_positives
+        self.pi_t: float | None = None
+        self.n_positive_: int = 0
+
+    def fit(self, scores, labels=None, **kw) -> "PrevalenceCorrection":
+        if labels is None:
+            raise ValueError("prevalence_correction estimates the target prior from labels")
+        y = np.asarray(labels, float).ravel()
+        self.n_positive_ = int(y.sum())
+        if y.size == 0 or self.n_positive_ < self.min_positives:
+            self.pi_t = None                       # not enough evidence: do nothing
+        else:
+            self.pi_t = float(y.mean())
+        return self
+
+    def transform(self, scores):
+        v = np.clip(np.asarray(scores, float), 0.0, 1.0)
+        if self.pi_t is None:
+            return v
+        return prior_correction(v, self.pi_s, self.pi_t)
+
+    @property
+    def n_labels_required(self) -> int:
+        return max(self.min_positives, 1)
 
 
 class TemperatureScaling(Recalibrator):
@@ -637,6 +703,7 @@ class MinimaxHybrid(HybridPriorFewShot):
 METHODS: dict[str, type[Recalibrator]] = {
     "identity": Identity,
     "prior_correction": PriorCorrection,
+    "prevalence_correction": PrevalenceCorrection,
     "temperature": TemperatureScaling,
     "platt": PlattScaling,
     "isotonic": Isotonic,

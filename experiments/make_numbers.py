@@ -84,6 +84,20 @@ def build(res: Path) -> dict[str, str]:
         m["conceptfractionpooled"] = _fmt(100 * dd.d_concept.sum() / tot, "{:.0f}") + r"\%" if tot > 0 else "n/a"
         m["interactionsharepooled"] = _fmt(100 * dd.interaction.sum() / tot, "{:+.0f}") + r"\%" if tot > 0 else "n/a"
         m["decompresidualmax"] = f"{np.abs(dd.residual).max():.1e}"
+
+        # The operational form of Theorem 1(c): what the prior correction removes
+        # when the target prevalence is KNOWN.  Pooled, so a label with
+        # negligible miscalibration cannot dominate through a small denominator.
+        before, after = dd.ece_before.sum(), dd.ece_after_prior_fix.sum()
+        if before > 0:
+            m["oraclegainpooled"] = _fmt(100 * (1 - after / before), "{:.0f}") + r"\%"
+        per_site = dd.groupby("site").apply(
+            lambda g: 1 - g.ece_after_prior_fix.sum() / max(g.ece_before.sum(), 1e-12),
+            include_groups=False,
+        )
+        if len(per_site):
+            m["oraclegainbest"] = _fmt(100 * float(per_site.max()), "{:.0f}") + r"\%"
+            m["oraclegainbestsite"] = str(per_site.idxmax()).replace("_", " ")
         m["nnegativeinteraction"] = str(int((dd.interaction < 0).sum()))
         m["ndecomprows"] = str(len(dd))
         if "concept_shift_detected" in dd:
@@ -140,14 +154,32 @@ def build(res: Path) -> dict[str, str]:
     if len(recal):
         r = recal[recal.reliable_estimate] if "reliable_estimate" in recal else recal
         base = r[(r.method == "identity")].ece_mean.mean()
-        for meth, key in [("prior_correction", "prior"), ("temperature", "temp"),
-                          ("hybrid", "hyb"), ("isotonic", "iso")]:
-            sub = r[(r.method == meth) & (r.n_cal.isin([0, 100]))]
-            sub = sub[sub.n_cal == (0 if meth == "prior_correction" else 100)]
+        zero_label = {"prior_correction": "prior", "prior_correction_gated": "priorgated",
+                      "prior_correction_minimax": "priorminimax"}
+        for meth, key in zero_label.items():
+            sub = r[(r.method == meth) & (r.n_cal == 0)]
+            if len(sub):
+                m[f"ece{key}"] = _fmt(sub.ece_mean.mean(), "{:.4f}")
+        for meth, key in [("temperature", "temp"), ("hybrid", "hyb"),
+                          ("isotonic", "iso"), ("platt", "platt"),
+                          ("prevalence_correction", "prev")]:
+            sub = r[(r.method == meth) & (r.n_cal == 100)]
             if len(sub):
                 m[f"ece{key}"] = _fmt(sub.ece_mean.mean(), "{:.4f}")
         if np.isfinite(base):
             m["eceidentity"] = _fmt(base, "{:.4f}")
+
+        # Where measuring the prevalence starts to pay, and where it plateaus.
+        prev = r[r.method == "prevalence_correction"].groupby("n_cal").ece_mean.mean()
+        if len(prev) and np.isfinite(base):
+            beats = prev[prev < base]
+            if len(beats):
+                m["prevmincases"] = str(int(beats.index.min()))
+            floor = prev.min()
+            near = prev[prev <= 1.1 * floor]
+            if len(near):
+                m["prevplateaucases"] = str(int(near.index.min()))
+            m["eceprevbest"] = _fmt(float(floor), "{:.4f}")
 
     # --- Theorem 3 ----------------------------------------------------------
     if len(conf):

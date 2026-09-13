@@ -117,36 +117,53 @@ budget, rather than a gate that acts on a verdict which can be silently wrong.
 \subsection{Recalibration: what each strategy costs and buys}
 \label{sec:results-recal}
 
-Table~\ref{tab:recal} reports mean ECE across target sites.  Three findings.
+Table~\ref{tab:recal} reports mean ECE across target sites.
 
 \IfFileExists{table_recal.tex}{\input{table_recal}}{}
 
-\emph{The free correction is not free of risk.}  Applied ungated, prior
-correction takes mean ECE from \NUM{eceidentity} to \NUM{eceprior} --- worse
-than shipping the model unchanged --- precisely at the sites where the
-goodness-of-fit test rejects and the prevalence estimate it relies on is wrong
-by an order of magnitude.
+\paragraph{The label-shift half is real.}
+Applying the prior correction with the \emph{true} target prevalence removes
+\NUM{oraclegainpooled} of the pooled calibration error, and
+\NUM{oraclegainbest} at the worst-hit site.  Theorem~\ref{thm:decomp}(c) is not
+merely an identity on paper: the component it isolates is a large share of the
+cliff, and correcting it requires nothing but a single number.
 
-\emph{A single temperature cannot repair a prior shift.}  With
-\NUM{ntempunreachable} of \NUM{ntemprows} site--label pairs never reaching the
-calibration budget at any label count we tested, temperature scaling is not
-merely inefficient here.  The reason is structural: a prior shift moves low and
-high scores in opposite directions, and a one-parameter temperature cannot
-change the sign of the miscalibration across the score range.
+\paragraph{That number cannot be obtained from unlabeled data here.}
+This is the paper's main negative result and it is unambiguous.  With the
+prevalence estimated by black-box shift estimation from unlabeled target
+scores, the same correction made calibration \emph{worse} than shipping the
+model unchanged --- pooled ECE \NUM{eceprior} against \NUM{eceidentity} --- at
+every site, including the same-country control.  Gating on the unlabeled
+goodness-of-fit test reduces the damage (\NUM{ecepriorgated}) without removing
+it, and the minimax correction over the identified set does not rescue it
+either.
 
-\emph{The minimax correction is the safest unlabeled default, under a stated
-condition.}  Replacing the gate's binary decision with an optimisation over the
-identified set gives a method that, whenever the source model satisfies
-Assumption~\ref{ass:srccal}, was never worse than shipping unchanged in any
-regime we tested: best under pure label shift, and better than the gate wherever
-concept shift is mild.  The condition is not decorative.  In a deliberately
-under-powered configuration whose source calibration split was too small to
-establish source calibration --- measured source ECE 0.015--0.053, with a source
-operator two to eight times worse conditioned --- \emph{every} unlabeled
-correction, minimax included, left calibration worse than shipping unchanged.
-Assumption~\ref{ass:srccal} is the precondition of the whole decomposition, and
-a site that cannot establish it on its own source data should not expect the
-free correction to help.
+Two explanations can be ruled out.  It is not a small-sample problem: the prior
+estimate does not improve when the source reference is enlarged sixfold, because
+the error is bias rather than variance.  It is not ill-conditioning of the
+source operator: restricting to labels whose operator is well conditioned does
+not change the sign of the effect.  What remains is the mechanism
+Theorem~\ref{thm:ident} predicts.  Cross-national shift moves the target score
+distribution \emph{along} the label-shift cone, where the prevalence is not
+identified and where, by Remark~\ref{rem:gofblind}, no unlabeled test can raise
+the alarm.
+
+\paragraph{Measuring the prevalence is cheap enough that this does not matter
+much.}
+A proportion needs no model to be identified.  Estimating the target prevalence
+on a small adjudicated sample and applying the same correction beats shipping
+unchanged from \NUM{prevmincases} cases onward, and by
+\NUM{prevplateaucases} it has recovered essentially the whole oracle benefit.
+Above roughly a hundred labels a nonparametric recalibration dominates it, so
+this occupies a narrow band of the budget --- precisely the band a site at the
+start of a deployment occupies.
+
+\paragraph{A single temperature cannot repair a prior shift.}
+Temperature scaling improves only slowly with budget and never reaches the
+performance of the two-parameter or nonparametric alternatives.  The reason is
+structural rather than statistical: a prior shift moves low and high scores in
+opposite directions, and a one-parameter temperature cannot change the sign of
+the miscalibration across the score range.
 
 \begin{figure}[t]\centering
 \includegraphics[width=\textwidth]{figures/fig4_sample_size.pdf}

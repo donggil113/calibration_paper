@@ -146,7 +146,7 @@ def recalibration_table(
     n_cal_grid: tuple[int, ...] = (0, 25, 50, 100, 200, 400, 800),
     methods: tuple[str, ...] = (
         "identity", "prior_correction", "prior_correction_gated", "prior_correction_minimax",
-        "temperature", "platt", "isotonic", "hybrid", "hybrid_minimax",
+        "prevalence_correction", "temperature", "platt", "isotonic", "hybrid", "hybrid_minimax",
     ),
     n_repeats: int = 20,
     seed: int = 0,
@@ -256,7 +256,8 @@ def nstar_table(
     eps: float = 0.02,
     alpha: float = 0.1,
     methods: tuple[str, ...] = (
-        "prior_correction", "prior_correction_minimax", "temperature", "hybrid", "hybrid_minimax",
+        "prior_correction", "prior_correction_minimax", "prevalence_correction",
+        "temperature", "hybrid", "hybrid_minimax",
     ),
     n_repeats: int = 60,
     seed: int = 0,

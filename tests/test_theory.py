@@ -493,3 +493,49 @@ def test_empirical_n_star_gives_the_free_method_the_whole_site(source):
                            n_repeats=8, pi_s=PI_S, source_scores=ss, source_labels=sy)
     cov = res.coverage[np.isfinite(res.coverage)]
     assert cov.max() - cov.min() < 1e-9, "coverage moved with a budget the method never spends"
+
+
+# ------------------------------- measuring the prevalence beats inferring it
+def test_prior_correction_with_a_known_prevalence_removes_most_of_the_cliff(source):
+    """Theorem 1(c) in its operational form: the label-shift half is real."""
+    from recalib_kit.metrics import expected_calibration_error as ece
+
+    rng = np.random.default_rng(90)
+    xt, yt = sample(60000, 0.05, rng, concept=0.3)
+    s = bayes(xt)
+    raw = ece(s, yt)
+    fixed = ece(prior_correction(s, PI_S, float(yt.mean())), yt)
+    assert fixed < 0.5 * raw
+
+
+def test_a_measured_prevalence_beats_an_inferred_one_under_concept_shift(source):
+    """The finding that motivates PrevalenceCorrection.
+
+    Unlabeled prior estimation fails where concept shift moves the score
+    distribution along the label-shift cone.  Measuring the prevalence on a
+    small labelled sample sidesteps the identification problem entirely,
+    because a proportion needs no model to be identified.
+    """
+    from recalib_kit.metrics import expected_calibration_error as ece
+
+    ss, sy = source
+    rng = np.random.default_rng(91)
+    xt, yt = sample(60000, 0.05, rng, concept=1.2)
+    s = bayes(xt)
+    kw = dict(pi_s=PI_S, source_scores=ss, source_labels=sy, target_unlabeled=s)
+    unlabeled = ece(fit_recalibrator("prior_correction", s, None, **kw).transform(s), yt)
+    measured = ece(fit_recalibrator("prevalence_correction", s[:200], yt[:200], pi_s=PI_S).transform(s), yt)
+    assert measured < unlabeled
+
+
+def test_prevalence_correction_refuses_a_sample_with_no_positives():
+    """A calibration draw with no positive case would collapse every score."""
+    from recalib_kit.metrics import expected_calibration_error as ece
+
+    rng = np.random.default_rng(92)
+    xt, yt = sample(20000, 0.02, rng)
+    s = bayes(xt)
+    neg = np.flatnonzero(yt == 0)[:40]
+    rec = fit_recalibrator("prevalence_correction", s[neg], yt[neg], pi_s=PI_S)
+    assert rec.pi_t is None
+    assert ece(rec.transform(s), yt) == pytest.approx(ece(s, yt), abs=1e-12)

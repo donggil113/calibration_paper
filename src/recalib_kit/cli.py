@@ -59,10 +59,18 @@ def cmd_audit(args) -> int:
     pi_s = float(sy.mean())
     b = decompose_unlabeled_budget(t, pi_s, s, sy, n_bins=args.bins)
 
+    # Read as a veto, not a licence.  The test measures distance from the
+    # label-shift cone, so it cannot see shift *along* the cone - which is the
+    # direction cross-national transfer takes.  A rejection is informative;
+    # acceptance is not permission.
     verdict = (
-        "FREE CORRECTION LICENSED - label shift is not rejected on your unlabeled data"
+        "NOT REFUTED - label shift is not rejected on your unlabeled data.\n"
+        "  This is NOT a licence to apply the unlabeled correction: the test cannot\n"
+        "  see shift along the label-shift cone. Measure your prevalence instead\n"
+        "  (recalib fix --method prevalence_correction) on a few dozen cases."
         if b["bbse_trustworthy"]
-        else "NOT LICENSED - this site's shift is not reducible to prevalence"
+        else "REFUTED - this site's shift is not reducible to prevalence.\n"
+             "  Do not apply an unlabeled correction here."
     )
     print(f"\n{verdict}\n")
     _emit({
@@ -76,10 +84,9 @@ def cmd_audit(args) -> int:
         "min_concept_shift_gamma": b["gamma_min"],
         "D_label_recoverable_free": b["d_label_l1"],
     }, args.json)
-    if not b["bbse_trustworthy"]:
-        print("\n  Next step: run `recalib budget` to price the labeled work, or use")
-        print("  `recalib fix --method prior_correction_minimax`, which damps the")
-        print("  correction by how little the unlabeled data pins the prevalence.")
+    print("\n  Next step: `recalib budget` prices the labelled work. In our transfer")
+    print("  matrix the cheapest effective step was measuring the target prevalence")
+    print("  on a few dozen adjudicated cases; past ~100 labels, isotonic dominates.")
     return 0
 
 
@@ -220,7 +227,7 @@ def main(argv=None) -> int:
     f = sub.add_parser("fix", help="apply a recalibration")
     f.add_argument("--target", type=Path, required=True)
     f.add_argument("--source", type=Path, required=True)
-    f.add_argument("--method", default="prior_correction_minimax")
+    f.add_argument("--method", default="prevalence_correction")
     f.add_argument("--out", type=Path, default=None)
     f.set_defaults(func=cmd_fix)
 
