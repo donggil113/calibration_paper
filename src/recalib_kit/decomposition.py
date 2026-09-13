@@ -93,17 +93,30 @@ class Decomposition:
             return float("nan")
         return float(np.clip(self.d_label / self.total, 0.0, 1.0))
 
+    #: Below this L1 ECE there is nothing to gain, so the gain ratio is undefined.
+    #: Chosen well under any clinically meaningful miscalibration: a model whose
+    #: ECE is 0.002 is calibrated for every practical purpose.
+    GAIN_FLOOR: float = 0.005
+
     @property
     def realized_free_gain(self) -> float:
         """Fraction of L1 ECE actually removed by the unlabeled prior correction.
 
-        This is the operational counterpart of :attr:`free_fraction`: it is what
-        a hospital would measure after switching the correction on, rather than
-        what the decomposition says is available in principle.  The two agree
-        when the interaction term is small and diverge when it is not, which
-        makes the gap a useful audit.
+        The operational counterpart of :attr:`free_fraction`: what a hospital
+        would measure after switching the correction on, rather than what the
+        decomposition says is available in principle.  The two agree when the
+        interaction term is small and diverge when it is not, which makes the
+        gap a useful audit.
+
+        Returns NaN when the site was already calibrated
+        (``ece_before <= GAIN_FLOOR``).  This is not cosmetic: it is a ratio
+        with the baseline in the denominator, so a site whose ECE moves from
+        0.0001 to 0.0006 - both zero for any practical purpose - reports a
+        "gain" of -5.  Averaging such values across labels produced an apparent
+        catastrophic failure of the prior correction at a site where it had in
+        fact done nothing at all, in either direction.
         """
-        if self.ece_before <= 0:
+        if not np.isfinite(self.ece_before) or self.ece_before <= self.GAIN_FLOOR:
             return float("nan")
         return float((self.ece_before - self.ece_after_prior_fix) / self.ece_before)
 
@@ -300,9 +313,15 @@ def decompose_unlabeled_budget(
     d_lab = t_mean[mask] - st.mean_score[mask]
 
     gof = test_label_shift_sufficiency(A, pi_s_vec, q_t, n_t=int(v.size), n_s=int(len(source_scores)))
+    # A prior estimate pinned at a simplex boundary is a failed solve, not a
+    # measurement: nnls has hit w=0 and the "estimate" carries no information.
+    degenerate = bool(pi_t_hat <= 1e-9 or pi_t_hat >= 1 - 1e-9)
     return {
         "pi_s": float(pi_s),
         "pi_t_bbse": float(pi_t_hat),
+        "bbse_degenerate": degenerate,
+        "bbse_sigma_min": float(est.diagnostics.get("sigma_min", float("nan"))),
+        "bbse_trustworthy": bool(not degenerate and not gof["reject_label_shift"]),
         "prior_ratio": float(pi_t_hat / max(pi_s, 1e-12)),
         "d_label": float(np.sum(w * d_lab**2)),
         "d_label_l1": float(np.sum(w * np.abs(d_lab))),

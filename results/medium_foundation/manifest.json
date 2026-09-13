@@ -1,0 +1,112 @@
+{
+  "config": {
+    "source": "mimic_like",
+    "targets": [
+      "georgia_like",
+      "ptbxl_like",
+      "chapman_like",
+      "code15_like",
+      "korea_like"
+    ],
+    "n_source": 4000,
+    "n_target": 2500,
+    "arm": "foundation",
+    "model_size": "small",
+    "ssl_epochs": 5,
+    "sup_epochs": 10,
+    "fs": 250,
+    "seconds": 10.0,
+    "seed": 0,
+    "data_root": null,
+    "label_tier": "core6",
+    "out_dir": "results"
+  },
+  "preset": "medium",
+  "eps": 0.02,
+  "alpha": 0.1,
+  "elapsed_seconds": 461.54749298095703,
+  "model": {
+    "arm": "foundation",
+    "ssl": {
+      "final_recon_mse": 0.023735701019854047,
+      "epochs": 5,
+      "n_pool": 16500
+    },
+    "probe": {
+      "n_labels": 6,
+      "converged": {
+        "AF": true,
+        "IAVB": true,
+        "RBBB": true,
+        "LBBB": true,
+        "SB": true,
+        "STACH": true
+      },
+      "all_converged": true,
+      "embedding_dim": 128
+    },
+    "temperatures": {
+      "AF": 1.1513550009969835,
+      "IAVB": 1.2408936024711892,
+      "RBBB": 0.764530283609366,
+      "LBBB": 0.5330292815005676,
+      "SB": 1.13994553579947,
+      "STACH": 1.2511943336060272
+    },
+    "seconds": 167.06519961357117
+  },
+  "sites": {
+    "mimic_like": {
+      "n": 792,
+      "country": "US",
+      "is_source": true
+    },
+    "georgia_like": {
+      "n": 2500,
+      "country": "US",
+      "is_source": false
+    },
+    "ptbxl_like": {
+      "n": 2500,
+      "country": "DE",
+      "is_source": false
+    },
+    "chapman_like": {
+      "n": 2500,
+      "country": "CN",
+      "is_source": false
+    },
+    "code15_like": {
+      "n": 2500,
+      "country": "BR",
+      "is_source": false
+    },
+    "korea_like": {
+      "n": 2500,
+      "country": "KR",
+      "is_source": false
+    }
+  },
+  "label_names": [
+    "AF",
+    "IAVB",
+    "RBBB",
+    "LBBB",
+    "SB",
+    "STACH"
+  ],
+  "rows": {
+    "transfer": 36,
+    "decomposition": 30,
+    "recalibration": 1260,
+    "nstar": 90,
+    "conformal": 150
+  },
+  "environment": {
+    "python": "3.11.15",
+    "numpy": "2.4.6",
+    "pandas": "3.0.5",
+    "platform": "Linux-6.18.44-fc-v24-x86_64-with-glibc2.39"
+  },
+  "data_source": "simulator"
+}
