@@ -433,3 +433,40 @@ def test_dispatcher_wires_unlabeled_estimators_by_capability(source):
         obj = fit_recalibrator(name, s[:400], yt[:400], pi_s=PI_S,
                                source_scores=ss, source_labels=sy)
         assert obj.transform(s[400:]).shape == s[400:].shape, name
+
+
+def test_zero_label_methods_do_not_vary_with_the_label_budget(source):
+    """Regression: a zero-label method must be invariant to the calibration set.
+
+    The recalibration sweep passed the small labeled calibration subset to
+    ``fit_unlabeled``, so the prior was estimated from a handful of scores
+    instead of the site's full (free) score vector.  The result was a figure in
+    which prior correction appeared to *improve* as labels were added - the
+    exact opposite of the claim a zero-label method exists to support.
+    """
+    from recalib_kit.metrics import expected_calibration_error as ece
+
+    ss, sy = source
+    rng = np.random.default_rng(80)
+    xt, yt = sample(20000, 0.05, rng)
+    s = bayes(xt)
+    vals = []
+    for n in (1, 10, 100, 500):
+        rec = fit_recalibrator("prior_correction", s[:n], yt[:n], pi_s=PI_S,
+                               source_scores=ss, source_labels=sy, target_unlabeled=s)
+        vals.append(ece(rec.transform(s), yt))
+    assert max(vals) - min(vals) < 1e-9, vals
+
+
+def test_empirical_n_star_gives_the_free_method_the_whole_site(source):
+    """The same invariance, through the n* machinery rather than the sweep."""
+    from recalib_kit.sample_size import empirical_n_star
+
+    ss, sy = source
+    rng = np.random.default_rng(81)
+    xt, yt = sample(20000, 0.05, rng)
+    s = bayes(xt)
+    res = empirical_n_star(s, yt, eps=0.02, alpha=0.1, method="prior_correction",
+                           n_repeats=8, pi_s=PI_S, source_scores=ss, source_labels=sy)
+    cov = res.coverage[np.isfinite(res.coverage)]
+    assert cov.max() - cov.min() < 1e-9, "coverage moved with a budget the method never spends"

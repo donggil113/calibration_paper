@@ -127,16 +127,23 @@ def fig_reliability(scored_npz: Path | None, transfer: pd.DataFrame, out: Path,
         sc, yy = z[f"{s}_scores"][:, j], z[f"{s}_labels"][:, j].astype(float)
         ax.plot([0, 1], [0, 1], color=INK_MUTED, lw=0.9, zorder=1)
         rc = reliability_curve(sc, yy, n_bins=10, min_count=15)
-        ax.errorbar(rc["mean_score"], rc["mean_label"],
-                    yerr=[rc["mean_label"] - rc["ci_low"], rc["ci_high"] - rc["mean_label"]],
-                    fmt="o-", color=CATEGORICAL[0], ms=4.5, lw=1.6, elinewidth=0.9,
-                    capsize=0, zorder=3, label="as shipped")
+        # The Wilson interval is not centred on the observed proportion - its
+        # centre is shifted toward 1/2 - so it cannot be drawn as an error bar
+        # around the point without either clipping it or misstating it.  Drawn
+        # as a segment, the asymmetry stays visible, which at the very low event
+        # rates of a screening cohort is the honest picture.
+        ax.vlines(rc["mean_score"], rc["ci_low"], rc["ci_high"],
+                  color=CATEGORICAL[0], lw=1.0, alpha=0.55, zorder=2)
+        ax.plot(rc["mean_score"], rc["mean_label"], "o-", color=CATEGORICAL[0],
+                ms=4.5, lw=1.6, zorder=3, label="as shipped")
         corrected = prior_correction(sc, pi_s, float(yy.mean()))
         rc2 = reliability_curve(corrected, yy, n_bins=10, min_count=15)
         ax.plot(rc2["mean_score"], rc2["mean_label"], "s-", color=CATEGORICAL[1],
                 ms=4.0, lw=1.6, zorder=2, label="+ prior correction (no labels)")
-        lim = max(0.02, float(np.nanmax([rc["mean_score"].max() if rc["mean_score"].size else 0,
-                                         rc["mean_label"].max() if rc["mean_label"].size else 0])) * 1.15)
+        lim = max(0.02, float(np.nanmax([
+            rc["mean_score"].max() if rc["mean_score"].size else 0,
+            rc["ci_high"].max() if rc["ci_high"].size else 0,
+        ])) * 1.10)
         ax.set_xlim(0, lim)
         ax.set_ylim(0, lim)
         ax.set_title(_lab(s), color=INK, fontsize=9)
@@ -149,7 +156,7 @@ def fig_reliability(scored_npz: Path | None, transfer: pd.DataFrame, out: Path,
         axes[k // ncol][k % ncol].axis("off")
     axes[0][0].legend(loc="upper left", fontsize=7.2)
     fig.suptitle(f"Reliability at each site — {label}", x=0.005, ha="left",
-                 color=INK, fontsize=10.5, fontweight="semibold")
+                 color=INK, fontsize=10.5, fontweight="bold")
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     p = out / "fig2_reliability.pdf"
     fig.savefig(p)
@@ -261,7 +268,7 @@ def fig_sample_size(recal: pd.DataFrame, nstar: pd.DataFrame, out: Path) -> Path
         axes[k // ncol][k % ncol].axis("off")
     axes[0][0].legend(loc="upper right", fontsize=7)
     fig.suptitle("What a new site has to pay", x=0.005, ha="left", color=INK,
-                 fontsize=10.5, fontweight="semibold")
+                 fontsize=10.5, fontweight="bold")
     fig.tight_layout(rect=(0, 0, 1, 0.96))
     p = out / "fig4_sample_size.pdf"
     fig.savefig(p)
@@ -300,6 +307,17 @@ def fig_collapse_map(transfer: pd.DataFrame, decomp: pd.DataFrame, out: Path) ->
         vals = mat.to_numpy(dtype=float)
         im = ax.imshow(vals, cmap=cmap, aspect="auto",
                        vmin=np.nanmin(vals), vmax=np.nanmax(vals))
+        # Mark cells with no estimate explicitly. Left blank they render as the
+        # surface colour, which in a light-to-dark ramp reads as "near zero" -
+        # the opposite of "we could not measure this", and at a screening site
+        # the unmeasurable cells are exactly the rare labels a reader most wants
+        # to know about.
+        for i, j2 in zip(*np.where(~np.isfinite(vals))):
+            ax.add_patch(plt.Rectangle((j2 - 0.5, i - 0.5), 1, 1, facecolor=GRID,
+                                       edgecolor="none", hatch="///", alpha=0.55,
+                                       zorder=2))
+            ax.text(j2, i, "n/e", ha="center", va="center", fontsize=6.8,
+                    color=INK_MUTED, zorder=3)
         ax.set_xticks(range(mat.shape[1]))
         ax.set_xticklabels(mat.columns, rotation=0, fontsize=8)
         ax.set_yticks(range(mat.shape[0]))
@@ -314,14 +332,17 @@ def fig_collapse_map(transfer: pd.DataFrame, decomp: pd.DataFrame, out: Path) ->
                 v = vals[i, j2]
                 if not np.isfinite(v):
                     continue
-                dark = (v - np.nanmin(vals)) > 0.6 * rng if rng > 0 else False
+                dark = (v - np.nanmin(vals)) > 0.55 * rng if rng > 0 else False
                 ax.text(j2, i, fmt.format(v), ha="center", va="center", fontsize=7.4,
                         color="white" if dark else INK_SECONDARY)
         cb = fig.colorbar(im, ax=ax, fraction=0.032, pad=0.02)
         cb.outline.set_visible(False)
         cb.ax.tick_params(labelsize=7, length=0, colors=INK_SECONDARY)
         title(ax, name)
-    fig.suptitle("Collapse map", x=0.005, ha="left", color=INK, fontsize=10.5, fontweight="semibold")
+    axes[0][0].text(0.0, -0.16, "n/e = not estimated (too few positive cases at this site)",
+                    transform=axes[0][0].transAxes, fontsize=7, color=INK_MUTED,
+                    ha="left", va="top")
+    fig.suptitle("Collapse map", x=0.005, ha="left", color=INK, fontsize=10.5, fontweight="bold")
     fig.tight_layout(rect=(0, 0, 1, 0.95))
     p = out / "fig5_collapse_map.pdf"
     fig.savefig(p)

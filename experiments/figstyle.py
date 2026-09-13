@@ -78,7 +78,7 @@ def apply_style() -> None:
         "font.sans-serif": ["DejaVu Sans", "Helvetica", "Arial"],
         "font.size": 8.5,
         "axes.titlesize": 9.5,
-        "axes.titleweight": "semibold",
+        "axes.titleweight": "bold",
         "axes.titlelocation": "left",
         "axes.labelsize": 8.5,
         "axes.labelcolor": INK_SECONDARY,
@@ -113,7 +113,17 @@ def despine(ax, keep=("left", "bottom")) -> None:
 
 
 def title(ax, text: str, subtitle: str | None = None) -> None:
-    ax.set_title(text, color=INK, pad=10 if subtitle else 6)
+    """Left-aligned title with an optional muted subtitle stacked above the axes.
+
+    The subtitle is placed above the title rather than between title and plot.
+    Placing it at 1.02 in axes coordinates put it directly on the top gridline,
+    where it collided with the topmost tick label - visible in every figure that
+    used one.  Both now sit clear of the plot area, and the title's pad reserves
+    the space rather than relying on the figure's own margin.
+    """
     if subtitle:
-        ax.text(0.0, 1.02, subtitle, transform=ax.transAxes, fontsize=7.8,
+        ax.set_title(text, color=INK, pad=22)
+        ax.text(0.0, 1.012, subtitle, transform=ax.transAxes, fontsize=7.8,
                 color=INK_MUTED, va="bottom", ha="left")
+    else:
+        ax.set_title(text, color=INK, pad=8)

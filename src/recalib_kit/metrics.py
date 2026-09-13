@@ -308,7 +308,16 @@ def reliability_curve(
     scheme: BinScheme = "equal_mass",
     min_count: int = 1,
 ) -> dict[str, np.ndarray]:
-    """Points for a reliability diagram plus a per-bin Wilson interval."""
+    """Points for a reliability diagram plus a per-bin Wilson interval.
+
+    Wilson rather than Wald because at the event rates of a screening cohort the
+    Wald interval routinely runs below zero and has poor coverage.  Note that
+    the Wilson interval is **not centred on the observed proportion** - its
+    centre is pulled toward 1/2 - so ``ci_low`` can exceed ``mean_label``.  Draw
+    it as an interval, not as an error bar around the point; treating the bounds
+    as symmetric offsets produces negative error bars and, if those are clipped,
+    silently misstates the uncertainty exactly where it is largest.
+    """
     st = binned_stats(scores, labels, n_bins, scheme)
     mask = st.count >= min_count
     p = st.mean_label[mask]

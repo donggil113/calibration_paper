@@ -644,15 +644,26 @@ def fit_recalibrator(
     pi_s: float | None = None,
     source_scores: np.ndarray | None = None,
     source_labels: np.ndarray | None = None,
+    target_unlabeled: np.ndarray | None = None,
     **kw,
 ) -> Recalibrator:
     """Construct and fit a recalibrator by name, wiring up unlabeled estimation.
 
+    ``scores``/``labels`` are the **labeled calibration set**.
+    ``target_unlabeled`` is the site's full score vector, which costs nothing to
+    collect and is what the unlabeled half should be estimated from; it defaults
+    to ``scores`` only for convenience when the two coincide.
+
+    Keeping them separate is not a nicety.  Passing the small calibration subset
+    to ``fit_unlabeled`` makes a zero-label method appear to improve as labels
+    are added - the exact opposite of the claim such a method exists to support -
+    and it did so in an early version of the recalibration sweep.
+
     Dispatch is by *capability*, not by a hardcoded list of method names: any
-    estimator exposing ``fit_unlabeled`` gets the source data, and any
-    estimator whose ``n_labels_required`` is zero is returned without a labeled
-    fit.  An earlier version matched names, and every new estimator silently
-    fell through to the labeled path and raised at first use.
+    estimator exposing ``fit_unlabeled`` gets the source data, and any estimator
+    whose ``n_labels_required`` is zero is returned without a labeled fit.  An
+    earlier version matched names, and every new estimator silently fell through
+    to the labeled path and raised at first use.
     """
     if method not in METHODS:
         raise KeyError(f"unknown method {method!r}; choose from {sorted(METHODS)}")
@@ -673,7 +684,10 @@ def fit_recalibrator(
                 f"{method!r} estimates its prior from unlabeled target scores plus a "
                 "labeled source sample; pass source_scores and source_labels"
             )
-        obj.fit_unlabeled(scores, source_scores, source_labels)
+        obj.fit_unlabeled(
+            scores if target_unlabeled is None else target_unlabeled,
+            source_scores, source_labels,
+        )
 
     if obj.n_labels_required == 0:
         return obj                       # nothing labeled to fit

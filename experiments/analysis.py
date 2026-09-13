@@ -183,6 +183,9 @@ def recalibration_table(
                             rec = fit_recalibrator(
                                 method, s[cal], y[cal], pi_s=pi_s,
                                 source_scores=ss, source_labels=sy,
+                                # the unlabeled half sees the whole site, which
+                                # costs nothing; only the labeled half is rationed
+                                target_unlabeled=s,
                             )
                         vals.append(expected_calibration_error(rec.transform(s[ev]), y[ev]))
                     except Exception:
